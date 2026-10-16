@@ -5,6 +5,26 @@ description: 为指定网站生成 Legado 阅读 App 的书源 JSON。支持俄�
 
 # Legado 书源生成 Skill
 
+## 统一翻译与 DOM 运行时
+
+正式活动书源以 `booksource/legado-book-sources-current.json` 为唯一编辑源。带 Microsoft Translate 逻辑的源应内联 `booksource/runtime/legado-translation-runtime.js`，由 `tools/migrate_translation_sources.py` 生成；不要批量修改 `booksource/archive/`、单源快照或 legado-E 本体。
+
+运行时提供四个公共入口：`TT(text, java, cache)` 翻译单值/数组并缓存、分批和最多四路并发；`TJ(json, java, cache)` 递归翻译 JSON 并跳过 `href/path/url/id` 等字段；`TC(html, java, cache)` 只翻译 Jsoup 文本节点；`TH(html, java, cache, options)` 统一移除、提取、图片属性清理、公式和正文 DOM 流程。翻译或公式服务失败时必须保留原文。
+
+每个正式翻译源声明 `remove_selector`、`extract_selector`、`toc_mode`、`formula_mode`、`formula_selector` 五个顶层配置。JSON 目录使用 `TJ` 一次批量翻译；HTML 目录使用 `TH` 先处理整页，再执行目录选择器，避免逐章调用 `TT`。IEEE/Springer 使用 `formula_mode: "codecogs"`，ScienceDirect 使用 `"wiris"`，其他源使用 `"none"`。IEEE 的 WAF、MathJax 和站点 API 等特殊逻辑必须保留在源规则中。
+
+当前 Edge `translatetext` 接口可匿名调用；若 `https://edge.microsoft.com/translate/auth` 返回 404，公共 runtime 仍会带空 `Bearer` 继续请求，失败时保留原文。不要把 auth 404 当作整页翻译失败。
+
+修改后运行：
+
+```sh
+python3 tools/migrate_translation_sources.py
+python3 tools/validate_translation_sources.py
+LEGADO_PHONE=10.92.27.11 node tools/test_translation_sources.js
+```
+
+`test_translation_sources.js` 会逐个写入 55 个正式翻译源，调试目录并提取真实章节链接后再调试正文；disabled 源保持 disabled。结果分为 `PASS`、`FAIL`、`BLOCKED`，不能把站点/WAF/代理阻断算作翻译通过。
+
 ## 功能说明
 为指定网站生成 [Legado-E（阅读）](https://github.com/Luoyacheng/legado-E) 阅读 App 的书源 JSON 文件。
 
