@@ -1049,7 +1049,6 @@
     "exploreUrl": "研究::http://www.ccg.org.cn/Research\n动态::http://www.ccg.org.cn/news\n活动::http://www.ccg.org.cn/archives/category/activity",
     "jsLib": "",
     "lastUpdateTime": 1792399398708,
-    "loginUrl": "",
     "respondTime": 180000,
     "ruleBookInfo": {
       "author": "@css:.article-author@text||.post-author@text||.entry-author@text",
@@ -1234,7 +1233,6 @@
     "exploreUrl": "观点::http://www.cicir.ac.cn/NEW/index.html",
     "jsLib": "",
     "lastUpdateTime": 1792236018153,
-    "loginUrl": "",
     "respondTime": 180000,
     "ruleBookInfo": {
       "author": "@js:\"\"",
@@ -1597,7 +1595,6 @@
     "exploreUrl": "Аналитика::https://russtrat.ru/analytics\nНовости::https://russtrat.ru/news\nМероприятия::https://russtrat.ru/events",
     "jsLib": "",
     "lastUpdateTime": 1792289881286,
-    "loginUrl": "",
     "respondTime": 180000,
     "ruleBookInfo": {
       "author": "@js:\"Институт РУССТРАТ\"",
