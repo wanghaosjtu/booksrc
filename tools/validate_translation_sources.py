@@ -47,6 +47,8 @@ for source_name, selectors in expected_selectors.items():
     assert all(selector in source.get("remove_selector", []) for selector in selectors), source_name
 
 by_name = {str(s.get("bookSourceName")): s for s in sources}
+assert "TH(result, java, cache" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterList", ""))
+assert "TT(result, java, cache)" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterName", ""))
 assert "notranslate_selector" in str(by_name["Nature"].get("ruleContent", {}).get("content", ""))
 assert "image_anchor_mode" in str(by_name["ScienceDirect"].get("ruleContent", {}).get("content", ""))
 assert "image_alt_selector" in str(by_name["Wiley"].get("ruleContent", {}).get("content", ""))

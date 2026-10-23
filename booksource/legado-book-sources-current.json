@@ -653,8 +653,8 @@
       "name": "{{book.originName+\":\" + java.get(\"key\")}}"
     },
     "ruleToc": {
-      "chapterList": "-\ndiv.commentary-landing div.push-down",
-      "chapterName": "h2 a@text",
+      "chapterList": "-\n<js>\nif (typeof TARGET_LANG === 'undefined' || !TARGET_LANG) TARGET_LANG = 'zh-Hans';\nresult = TH(result, java, cache, {remove_selector:[], extract_selector:[], formula_mode:'none', formula_selector:''});\nresult;\n</js>\ndiv.commentary-landing div.push-down",
+      "chapterName": "h2 a@text\n<js>\nif (result && !/[\\u3400-\\u9fff]/.test(String(result))) result = TT(result, java, cache);\nresult;\n</js>",
       "chapterUrl": "h2 a@href\n<js>\nvar raw=result; if(Array.isArray(raw))raw=raw[0]||\"\"; var u=String(raw||\"\").trim();\nif(u.charAt(0)===\"[\"&&u.charAt(u.length-1)===\"]\")u=u.substring(1,u.length-1).trim();\nif(u.indexOf('http')!==0){\n  if(u.indexOf('//')===0)u='https:'+u;\n  else if(u.indexOf('./')===0)u='https://carnegie.ru/'+u.substring(2);\n  else if(u.charAt(0)==='/')u='https://carnegie.ru'+u;\n  else u='https://carnegie.ru/'+u;\n}\nresult=u;\nresult;\n</js>",
       "nextTocUrl": "a.page-links__next@href\n<js>\nvar r=result;if(Array.isArray(r))r=r[0]||\"\";var u=String(r||\"\").trim(),current=String(baseUrl||\"\"),m=current.match(/[?&](?:pageOn|page|p)=(\\d+)/i),page=m?parseInt(m[1],10):1;if(page>=10){result=\"\";}else{if(u.charAt(0)===\"[\"&&u.charAt(u.length-1)===\"]\")u=u.slice(1,-1).trim();if(u.indexOf(\"http\")!==0){if(u.indexOf(\"//\")===0)u=\"https:\"+u;else if(u.charAt(0)===\"/\")u=\"https://carnegie.ru\"+u;else u=\"https://carnegie.ru/\"+u;}result=u&&u!==current?u:\"\";}\n</js>",
       "updateTime": "ul@text&&p@text"
