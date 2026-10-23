@@ -135,15 +135,23 @@ function _ltSkipJsonKey(key) {
     return !!_LT_SKIP_KEYS[key] || /(?:url|href|path|link|id|uuid|isbn|doi)$/.test(name);
 }
 
-/* Translate JSON in one batched TT call; retain URL/identifier fields. */
-function TJ(json, java, cache) {
+/* Optional keys selects string fields by exact name, at any nesting level.
+ * Omitted/null retains legacy traversal; [] translates nothing. Protected
+ * URL/identifier/status fields are never translated, even if allowlisted. */
+function TJ(json, java, cache, keys) {
     var parsed = json;
     var stringInput = typeof json === "string" || json instanceof String || _ltJavaString(json);
     try { if (stringInput) parsed = JSON.parse(_ltString(json)); } catch (e) { return json; }
-    var paths = [], texts = [];
+    var paths = [], texts = [], allowed = null;
+    if (keys != null) {
+        if (!_ltArray(keys)) return json;
+        allowed = {};
+        for (var ki = 0; ki < keys.length; ki++) allowed["$" + _ltString(keys[ki])] = true;
+        if (!keys.length) return json;
+    }
     function collect(value, parent, key) {
-        if (typeof value === "string" || value instanceof String) {
-            if (!_ltSkipJsonKey(key)) {
+        if (typeof value === "string" || value instanceof String || _ltJavaString(value)) {
+            if (!_ltSkipJsonKey(key) && (allowed == null || allowed["$" + key] === true)) {
                 paths.push({parent: parent, key: key});
                 texts.push(_ltString(value));
             }
@@ -154,14 +162,16 @@ function TJ(json, java, cache) {
             return;
         }
         if (value && typeof value === "object") {
-            for (var name in value) if (Object.prototype.hasOwnProperty.call(value, name))
-                collect(value[name], value, name);
+            for (var name in value) if (Object.prototype.hasOwnProperty.call(value, name)) collect(value[name], value, name);
         }
     }
     collect(parsed, null, "");
     if (texts.length) {
         var translated = TT(texts, java, cache);
-        for (var i = 0; i < paths.length; i++) paths[i].parent[paths[i].key] = translated[i];
+        for (var i = 0; i < paths.length; i++) {
+            if (paths[i].parent == null) parsed = translated[i];
+            else paths[i].parent[paths[i].key] = translated[i];
+        }
     }
     return stringInput ? JSON.stringify(parsed) : parsed;
 }
