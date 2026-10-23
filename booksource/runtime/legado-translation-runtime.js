@@ -44,19 +44,7 @@ function _ltBody(response) {
     return _ltString(response);
 }
 
-function _ltRequest(java, token, target, values) {
-    var options = JSON.stringify({
-        "headers": {"Authorization": "Bearer " + token, "Content-Type": "application/json"},
-        "method": "post",
-        "body": JSON.stringify(values)
-    });
-    try {
-        return java.ajax("https://edge.microsoft.com/translate/translatetext?to=" +
-            encodeURIComponent(target) + "," + options);
-    } catch (e) { return ""; }
-}
-
-/* Translate one string or an array. Failed items stay unchanged. */
+/* Java/Rhino compatibility helpers. */
 function _ltJavaString(value) {
     try {
         return value != null && value.getClass && String(value.getClass().getName()).indexOf("String") >= 0;
@@ -67,6 +55,93 @@ function _ltArray(value) {
     return Object.prototype.toString.call(value) === "[object Array]";
 }
 
+function _ltMarker(index) {
+    return "<|L" + index + "|>";
+}
+
+/* Edge sometimes normalizes entity-escaped or spaced marker text. */
+function _ltNormalizeMarkers(value) {
+    return _ltString(value)
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/<\s*\|\s*L\s*(\d+)\s*\|\s*>/gi, function (_, index) {
+            return _ltMarker(index);
+        });
+}
+
+/* Recover only segments whose two boundaries are known. A missing marker
+ * never causes neighboring source texts to be merged into one DOM node. */
+function _ltSplitLabeled(value, originals) {
+    var text = _ltNormalizeMarkers(value), matches = [], re = /<\|L(\d+)\|>/g, match;
+    while ((match = re.exec(text)) !== null) {
+        matches.push({id: parseInt(match[1], 10), start: match.index, end: re.lastIndex});
+    }
+    if (!matches.length) return null;
+    var pieces = {}, reliable = {};
+    for (var i = 0; i < matches.length; i++) {
+        var current = matches[i], next = i + 1 < matches.length ? matches[i + 1] : null;
+        if (current.id < 1 || current.id > originals.length || pieces[current.id] !== undefined) continue;
+        var nextId = next ? next.id : 0;
+        // A segment is safe when its next marker is the immediately following
+        // label, or when it is the final expected segment.
+        reliable[current.id] = (next && nextId === current.id + 1) || (!next && current.id === originals.length);
+        pieces[current.id] = text.substring(current.end, next ? next.start : text.length)
+            .replace(/^\s+|\s+$/g, "");
+    }
+    return {pieces: pieces, reliable: reliable};
+}
+
+function _ltRequestOptions(token, body) {
+    return JSON.stringify({
+        "headers": {"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        "method": "post",
+        "body": JSON.stringify(body)
+    });
+}
+
+function _ltRequest(java, token, target, values) {
+    try {
+        return java.ajax("https://edge.microsoft.com/translate/translatetext?to=" +
+            encodeURIComponent(target) + "," + _ltRequestOptions(token, values));
+    } catch (e) { return ""; }
+}
+
+function _ltTranslationTexts(response) {
+    var parsed = null, body = _ltBody(response);
+    try { parsed = JSON.parse(body); } catch (e) {}
+    if (!_ltArray(parsed)) return null;
+    var values = [];
+    for (var i = 0; i < parsed.length; i++) {
+        try { values[i] = _ltString(parsed[i].translations[0].text); }
+        catch (e) { return null; }
+    }
+    return values;
+}
+
+/* Safe compatibility fallback for providers that remove all labels. */
+function _ltFallbackValues(java, token, target, values) {
+    var output = [], urls = [], i;
+    for (i = 0; i < values.length; i++) {
+        output[i] = values[i];
+        urls.push("https://edge.microsoft.com/translate/translatetext?to=" +
+            encodeURIComponent(target) + "," + _ltRequestOptions(token, [values[i]]));
+    }
+    for (var start = 0; start < urls.length; start += 4) {
+        var end = Math.min(start + 4, urls.length), responses = [];
+        try { responses = java.ajaxAll(urls.slice(start, end), false) || []; }
+        catch (e) {
+            for (i = start; i < end; i++) responses.push(_ltRequest(java, token, target, [values[i]]));
+        }
+        for (var r = 0; r < responses.length; r++) {
+            var texts = _ltTranslationTexts(responses[r]);
+            if (texts && texts.length === 1) output[start + r] = texts[0];
+        }
+    }
+    return output;
+}
+
+/* Translate one scalar or an array. Arrays are joined into labeled documents
+ * so Edge sees neighboring prose as context; results are mapped back safely. */
 function TT(text, java, cache) {
     var scalar = text == null || typeof text === "string" || text instanceof String || _ltJavaString(text) || !_ltArray(text);
     var input = scalar ? [_ltString(text)] : (text || []);
@@ -79,44 +154,72 @@ function TT(text, java, cache) {
         var cacheKey = "legado_ms:" + _ltTarget(java) + ":" + value;
         var cached = _ltCacheGet(cache, cacheKey);
         if (cached != null) { output[i] = _ltString(cached); continue; }
-        if (pending.length && (chars + value.length > 4000 || pending.length >= 200)) {
+        var markerCost = 16;
+        if (pending.length && (chars + value.length + markerCost > 3600 || pending.length >= 200)) {
             chunks.push(pending); chunkIndexes.push(indexes);
             pending = []; indexes = []; chars = 0;
         }
-        pending.push(value); indexes.push(i); chars += value.length;
+        pending.push(value); indexes.push(i); chars += value.length + markerCost;
     }
     if (pending.length) { chunks.push(pending); chunkIndexes.push(indexes); }
     if (!chunks.length) return scalar ? output[0] : output;
 
-    // The Edge endpoint currently accepts anonymous requests. The legacy
-    // auth endpoint may return 404, so an empty token must not make TT fail
-    // open before trying translatetext. Keep the empty Bearer header for
-    // clients that normalize an empty Authorization value.
-    var token = _ltAuth(java, cache);
-    var target = _ltTarget(java), urls = [];
+    var token = _ltAuth(java, cache), target = _ltTarget(java), urls = [];
     for (i = 0; i < chunks.length; i++) {
-        var options = JSON.stringify({"headers":{"Authorization":"Bearer "+token,"Content-Type":"application/json"},"method":"post","body":JSON.stringify(chunks[i])});
-        urls.push("https://edge.microsoft.com/translate/translatetext?to=" + encodeURIComponent(target) + "," + options);
+        var parts = [];
+        for (var n = 0; n < chunks[i].length; n++)
+            parts.push(_ltMarker(n + 1) + "\n" + chunks[i][n]);
+        var joined = parts.join("\n");
+        urls.push("https://edge.microsoft.com/translate/translatetext?to=" +
+            encodeURIComponent(target) + "," + _ltRequestOptions(token, [joined]));
     }
-    for (var start = 0; start < urls.length; start += 4) {
-        var end = Math.min(start + 4, urls.length), responses = [];
-        try { responses = java.ajaxAll(urls.slice(start, end), false) || []; }
+
+    for (var wave = 0; wave < urls.length; wave += 4) {
+        var waveEnd = Math.min(wave + 4, urls.length), responses = [], handled = {};
+        try { responses = java.ajaxAll(urls.slice(wave, waveEnd), false) || []; }
         catch (e) {
-            for (i = start; i < end; i++) responses.push(_ltRequest(java, token, target, chunks[i]));
+            for (i = wave; i < waveEnd; i++) responses.push(_ltRequest(java, token, target, [
+                (function (values) {
+                    var joined = [], q;
+                    for (q = 0; q < values.length; q++) joined.push(_ltMarker(q + 1) + "\n" + values[q]);
+                    return joined.join("\n");
+                })(chunks[i])
+            ]));
         }
-        for (var r = 0; r < responses.length; r++) {
-            var parsed = null;
-            var responseBody = _ltBody(responses[r]);
-            try { parsed = JSON.parse(responseBody); } catch (e) {}
-            var ci = start + r;
-            if (!parsed || parsed.length !== chunks[ci].length) continue;
-            for (var n = 0; n < parsed.length; n++) {
-                try {
-                    var translated = _ltString(parsed[n].translations[0].text);
-                    var oi = chunkIndexes[ci][n];
-                    output[oi] = translated;
-                    _ltCachePut(cache, "legado_ms:" + target + ":" + chunks[ci][n], translated, 2592000);
-                } catch (e) {}
+        for (var r = 0; r < responses.length && wave + r < waveEnd; r++) {
+            var ci = wave + r, translated = _ltTranslationTexts(responses[r]);
+            handled[ci] = true;
+            var unresolved = [], resolved = {};
+            if (translated && translated.length === 1) {
+                var split = _ltSplitLabeled(translated[0], chunks[ci]);
+                if (split) {
+                    for (n = 0; n < chunks[ci].length; n++) {
+                        if (split.reliable[n + 1] && split.pieces[n + 1] !== undefined) {
+                            var oi = chunkIndexes[ci][n];
+                            output[oi] = split.pieces[n + 1];
+                            _ltCachePut(cache, "legado_ms:" + target + ":" + chunks[ci][n], output[oi], 2592000);
+                            resolved[n] = true;
+                        }
+                    }
+                }
+            }
+            for (n = 0; n < chunks[ci].length; n++) if (!resolved[n]) unresolved.push(chunks[ci][n]);
+            if (unresolved.length) {
+                var fallback = _ltFallbackValues(java, token, target, unresolved), fi = 0;
+                for (n = 0; n < chunks[ci].length; n++) if (!resolved[n]) {
+                    output[chunkIndexes[ci][n]] = fallback[fi];
+                    if (fallback[fi] !== chunks[ci][n]) _ltCachePut(cache, "legado_ms:" + target + ":" + chunks[ci][n], fallback[fi], 2592000);
+                    fi++;
+                }
+            }
+        }
+        // ajaxAll may return fewer responses than requested; preserve ordering
+        // and use the same safe per-item fallback for missing waves.
+        for (ci = wave; ci < waveEnd; ci++) if (!handled[ci]) {
+            var missing = _ltFallbackValues(java, token, target, chunks[ci]);
+            for (n = 0; n < chunks[ci].length; n++) {
+                output[chunkIndexes[ci][n]] = missing[n];
+                if (missing[n] !== chunks[ci][n]) _ltCachePut(cache, "legado_ms:" + target + ":" + chunks[ci][n], missing[n], 2592000);
             }
         }
     }

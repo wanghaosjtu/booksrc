@@ -8,6 +8,9 @@ data = json.loads((root / "booksource/legado-book-sources-current.json").read_te
 runtime = (root / "booksource/runtime/legado-translation-runtime.js").read_text(encoding="utf-8")
 assert all(token in runtime for token in ("function TT(", "function TJ(", "function TC(", "function TH("))
 assert "function _ltPrepareImages(" in runtime
+assert "function _ltMarker(" in runtime
+assert "function _ltSplitLabeled(" in runtime
+assert "function _ltFallbackValues(" in runtime
 assert "String(attr.getKey()) !== \"src\"" in runtime
 assert "if (!token) return scalar ? output[0] : output;" not in runtime
 all_translation_sources = [s for s in data if any(x in json.dumps(s, ensure_ascii=False).lower() for x in ("microsoft", "edge.microsoft.com", "translatetext")) and s.get("bookSourceName") != "Test"]
@@ -20,6 +23,8 @@ assert sources, "no formal translated sources"
 assert len({s.get("bookSourceUrl") for s in sources}) == len(sources), "duplicate formal source URL"
 for s in sources:
     assert "/* legado-translation-runtime v1" in s.get("jsLib", "")
+    embedded_runtime = s.get("jsLib", "")[s.get("jsLib", "").index("/* legado-translation-runtime v1"): ]
+    assert embedded_runtime == runtime, s.get("bookSourceName")
     assert s.get("jsLib", "").count("/* legado-translation-runtime v1") == 1
     assert s.get("toc_mode") in ("json", "html")
     assert s.get("formula_mode") in ("none", "codecogs", "wiris")
@@ -47,6 +52,19 @@ for source_name, selectors in expected_selectors.items():
     assert all(selector in source.get("remove_selector", []) for selector in selectors), source_name
 
 by_name = {str(s.get("bookSourceName")): s for s in sources}
+all_by_name = {str(s.get("bookSourceName")): s for s in data}
+state_all = all_by_name["State.gov "]
+assert "countries-areas-archive" in str(state_all.get("ruleExplore", {}).get("bookList", ""))
+journal_all = all_by_name["中国社会科学期刊"]
+assert "@data-src" in str(journal_all.get("ruleBookInfo", {}).get("coverUrl", ""))
+cas_all = all_by_name["中国科学院"]
+assert "list.sort" in str(cas_all.get("ruleExplore", {}).get("bookList", ""))
+assert "TT(result,java,cache)" in str(all_by_name["МИД России (mid.ru)"].get("ruleToc", {}).get("chapterName", ""))
+assert "img[data-srcset]" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
+assert "read-more" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
+assert all("java.getStrResponse" not in str(x.get("loginCheckJs", "")) for x in data)
+assert all("cfResponse=java.startBrowserAwait(cfUrl,\"Cloudflare人工验证\",true)" not in str(x.get("loginCheckJs", "")) for x in data)
+assert "startBrowserAwait(url, \"IEEE 验证\", true)" in str(all_by_name["IEEE"].get("loginCheckJs", ""))
 assert "TH(result, java, cache" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterList", ""))
 assert "TT(result, java, cache)" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterName", ""))
 assert "notranslate_selector" in str(by_name["Nature"].get("ruleContent", {}).get("content", ""))
