@@ -65,6 +65,15 @@ function merge(live, desired) {
   for (const key of phoneNormalized) delete next[key];
   for (const key of Object.keys(next)) if (next[key] === null) delete next[key];
   for (const key of preserve) {
+    /* Keep phone-owned UI when it exists, but allow a newly reviewed source
+     * to provide UI for a phone entry whose UI is still empty. */
+    if (key === 'loginUi') {
+      const desiredUi = desired[key];
+      const liveUi = live[key];
+      const hasDesiredUi = desiredUi != null && String(desiredUi).trim() !== '';
+      const hasLiveUi = liveUi != null && String(liveUi).trim() !== '';
+      if (hasDesiredUi && !hasLiveUi) continue;
+    }
     if (Object.prototype.hasOwnProperty.call(live, key)) next[key] = live[key];
     else delete next[key];
   }

@@ -259,7 +259,26 @@ incResponse;
 </js>`;
 {
   const s = source('https://www.inc.com/');
-  s.loginCheckJs = incLoginCheck.replace("<js>\n", "").replace("\n</js>", "");
+  s.loginCheckJs = "";
+}
+{
+  const s = source('https://www.inc.com/');
+  const content = String(s.ruleContent && s.ruleContent.content || '');
+  const replacement = String.raw`var incLower=html.toLowerCase(),incBlocked=incLower.indexOf("datadome")>=0||incLower.indexOf("please enable js and disable any ad blocker")>=0||incLower.indexOf("enable javascript and cookies")>=0||incLower.indexOf("verify you are human")>=0;
+if(incBlocked){var incUrl=String(baseUrl||""),incCut=incUrl.indexOf(",{ ");if(incCut<0)incCut=incUrl.indexOf(",{");if(incCut>=0)incUrl=incUrl.substring(0,incCut);if(incUrl.indexOf("http://")===0||incUrl.indexOf("https://")===0)java.log("Inc.com DataDome challenge: " + incUrl);throw "Inc.com需要人工验证，请完成后重试";}
+if(html.length<5000||/展开以继续阅读|continue reading|read more/i.test(html)){`;
+  const parts = content.split("\n");
+  const idx = parts.findIndex(function(line) { return line.indexOf('if(html.length<5000') >= 0; });
+  if (idx >= 0) s.ruleContent.content = parts.slice(0, idx).concat(replacement.split("\n"), parts.slice(idx + 1)).join("\n");
+  else if (content.indexOf(replacement) < 0) throw Error('inc content marker');
+}
+{
+  const s = source('https://www.inc.com/');
+  if (!s.loginUi) s.loginUi = JSON.stringify([{
+    name: "Inc.com人工验证",
+    type: "button",
+    action: 'java.startBrowser("https://www.inc.com/","Inc.com人工验证")'
+  }]);
 }
 fs.writeFileSync(file, JSON.stringify(sources, null, 2) + '\n');
 console.log(`repaired ${file}`);
