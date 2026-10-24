@@ -33,12 +33,28 @@ function dataOf(value) {
   throw new Error('invalid source response');
 }
 
+/* Android may deserialize JSON objects in a different insertion order. Compare
+ * semantic values, not JSON.stringify's property order. */
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === 'object') {
+    return Object.keys(value).sort().reduce((out, key) => {
+      out[key] = canonicalValue(value[key]);
+      return out;
+    }, {});
+  }
+  return value;
+}
+
+function equalValue(left, right) {
+  return JSON.stringify(canonicalValue(left)) === JSON.stringify(canonicalValue(right));
+}
 function changed(before, after) {
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   for (const key of keys) {
     if (phoneNormalized.has(key)) continue;
     if (after[key] === null && before[key] == null) continue;
-    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) return true;
+    if (!equalValue(before[key], after[key])) return true;
   }
   return false;
 }
@@ -86,7 +102,7 @@ function merge(live, desired) {
     for (const key of Object.keys(item)) {
       if (phoneNormalized.has(key)) continue;
       if (item[key] === null && actual[key] == null) continue;
-      if (JSON.stringify(item[key]) !== JSON.stringify(actual[key])) {
+      if (!equalValue(item[key], actual[key])) {
         throw new Error(`readback mismatch ${item.bookSourceName}.${key}`);
       }
     }
