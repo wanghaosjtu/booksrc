@@ -163,7 +163,7 @@ feed.select("item").forEach(function(item) {
   var url = link ? String(link.text() || link.html() || "").trim() : "";
   var description = item.select("description").text().trim();
   var enclosure = item.select("enclosure").first(), cover = enclosure ? String(enclosure.attr("url") || "").trim() : "";
-  if (cover && cover.toLowerCase().indexOf(".webp") >= 0 && cover.indexOf("/f_jpg/") < 0) cover = cover.replace("/image/upload/", "/image/upload/f_jpg/");
+  if (cover && cover.indexOf("/f_webp") >= 0) cover = cover.replace("/f_webp", "/f_jpg"); else if (cover && cover.toLowerCase().indexOf(".webp") >= 0 && cover.indexOf("/f_jpg/") < 0) cover = cover.replace("/image/upload/", "/image/upload/f_jpg/");
   if (url && title) rows.push({title: title, url: url, description: description, cover: cover});
 });
 JSON.stringify(rows);
@@ -210,6 +210,15 @@ result;
   s.ruleToc.chapterName = '$.title';
   s.ruleToc.chapterUrl = '$.url';
   s.ruleToc.nextTocUrl = '';
+}
+{
+  const s = source('https://www.inc.com/');
+  const content = String(s.ruleContent && s.ruleContent.content || '');
+  const replacement = String.raw`if(src&&/img-cdn\.inc\.com\/image\/upload\//i.test(src)){if(src.indexOf("/f_webp")>=0)src=src.replace("/f_webp","/f_jpg");else if(/\.webp(?:[?#]|$)/i.test(src)&&src.indexOf("/f_jpg/")<0)src=src.replace("/image/upload/","/image/upload/f_jpg/");}`;
+  const parts = content.split("\n");
+  const idx = parts.findIndex(function(line) { return line.indexOf('img-cdn') >= 0 && line.indexOf('f_jpg') >= 0; });
+  if (idx >= 0) s.ruleContent.content = parts.slice(0, idx).concat([replacement], parts.slice(idx + 1)).join("\n");
+  else if (content.indexOf(replacement) < 0) throw Error('inc image marker');
 }
 fs.writeFileSync(file, JSON.stringify(sources, null, 2) + '\n');
 console.log(`repaired ${file}`);
