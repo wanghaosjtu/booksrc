@@ -252,8 +252,8 @@ if (incChallenge(incBody(incResponse))) {
   var incUrl = incResponseUrl(incResponse);
   if (incUrl.indexOf("https://") !== 0 && incUrl.indexOf("http://") !== 0) throw "Inc.com验证地址无效";
   java.log("Inc.com 触发 DataDome，打开人工验证: " + incUrl);
-  incResponse = java.startBrowserAwait(incUrl, "Inc.com 人工验证", false);
-  if (incChallenge(incBody(incResponse))) throw "Inc.com验证未解除拦截";
+  java.startBrowser(incUrl, "Inc.com 人工验证");
+  throw "Inc.com需要人工验证，请完成后重试";
 }
 incResponse;
 </js>`;
