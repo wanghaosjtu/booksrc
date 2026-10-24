@@ -2958,10 +2958,10 @@
       "webJs": ""
     },
     "ruleExplore": {
-      "bookList": "<js>\nsrc=`Startup::https://www.inc.com/startup,{\"webView\":true,\"webViewDelayTime\":5000}\nGrow::https://www.inc.com/grow,{\"webView\":true,\"webViewDelayTime\":5000}\nLead::https://www.inc.com/lead,{\"webView\":true,\"webViewDelayTime\":5000}\nTech::https://www.inc.com/technology,{\"webView\":true,\"webViewDelayTime\":5000}\nInnovate::https://www.inc.com/innovate,{\"webView\":true,\"webViewDelayTime\":5000}\nMoney::https://www.inc.com/money,{\"webView\":true,\"webViewDelayTime\":5000}\nBrandview::https://www.inc.com/brandview,{\"webView\":true,\"webViewDelayTime\":5000}\n`\nlist=[]\n  \nfor (ln of src.split('\\n')){\n  spl = ln.split('::')\n  title = spl[0]\n  url= spl[1]\n  list.push ({'title':title,\n          'url':url})\n}\n\nJSON.stringify(list)\n\n</js>\n$.[*]",
+      "bookList": "<js>\nfunction responseBody(response) {\n  try {\n    if (!response) return \"\";\n    var body = response.body;\n    if (body != null && typeof body !== \"function\") return String(body);\n    if (typeof body === \"function\") return String(body.call(response));\n  } catch (e) {}\n  return String(response || \"\");\n}\nvar feed = org.jsoup.Jsoup.parse(responseBody(java.ajax(\"https://www.inc.com/rss\")), \"\", org.jsoup.parser.Parser.xmlParser());\nvar rows = [];\nfeed.select(\"item\").forEach(function(item) {\n  var link = item.select(\"link\").first(), title = item.select(\"title\").text().trim();\n  var url = link ? String(link.text() || link.html() || \"\").trim() : \"\";\n  var description = item.select(\"description\").text().trim();\n  var enclosure = item.select(\"enclosure\").first(), cover = enclosure ? String(enclosure.attr(\"url\") || \"\").trim() : \"\";\n  if (cover && cover.toLowerCase().indexOf(\".webp\") >= 0 && cover.indexOf(\"/f_jpg/\") < 0) cover = cover.replace(\"/image/upload/\", \"/image/upload/f_jpg/\");\n  if (url && title) rows.push({title: title, url: url, description: description, cover: cover});\n});\nJSON.stringify(rows);\n</js>$[*]",
       "bookUrl": "$.url",
-      "coverUrl": "@js:\"https://img-cdn.inc.com/image/upload/w_300,ar_16:9,c_fill,g_auto,q_auto:best/images/panoramic/inc-Column-Chip-Conley_537489_vbvozr.webp\"",
-      "intro": "@js:\"Inc. is the voice of the American entrepreneur. We inspire, inform, and document the most fascinating people in business: the risk-takers, the innovators, and the ultra-driven go-getters that represent the most dynamic force in the American economy.\"",
+      "coverUrl": "$.cover",
+      "intro": "$.description",
       "kind": "\"?????\"",
       "name": "$.title"
     },
@@ -2971,10 +2971,11 @@
       "name": "/a/text()"
     },
     "ruleToc": {
-      "chapterList": "<js>\nif (typeof TARGET_LANG === 'undefined' || !TARGET_LANG) TARGET_LANG = 'zh-Hans';\nresult = TH(result, java, cache, {remove_selector:[], extract_selector:[], formula_mode:'none', formula_selector:''});\nresult;\n</js>\n//article",
-      "chapterName": "//h2/text()",
-      "chapterUrl": "//h2/../@href##$##,{\"webView\":true,\"webViewDelayTime\":8000}",
-      "updateTime": "//p//text()"
+      "chapterList": "<js>\nfunction responseBody(response) {\n  try {\n    if (!response) return \"\";\n    var body = response.body;\n    if (body != null && typeof body !== \"function\") return String(body);\n    if (typeof body === \"function\") return String(body.call(response));\n  } catch (e) {}\n  return String(response || \"\");\n}\nvar target = String(baseUrl || \"\"), comma = target.indexOf(\",{\");\nif (comma >= 0) target = target.substring(0, comma);\nfunction sameUrl(a, b) {\n  a = String(a || \"\"); b = String(b || \"\");\n  while (a.length && a.charAt(a.length - 1) === \"/\") a = a.substring(0, a.length - 1);\n  while (b.length && b.charAt(b.length - 1) === \"/\") b = b.substring(0, b.length - 1);\n  return a === b;\n}\nvar feed = org.jsoup.Jsoup.parse(responseBody(java.ajax(\"https://www.inc.com/rss\")), \"\", org.jsoup.parser.Parser.xmlParser());\nvar rows = [];\nfeed.select(\"item\").forEach(function(item) {\n  var link = item.select(\"link\").first(), url = link ? String(link.text() || link.html() || \"\").trim() : \"\";\n  var title = item.select(\"title\").text().trim();\n  if (url && title && sameUrl(url, target)) rows.push({title: title, url: url});\n});\nresult = TJ(JSON.stringify(rows), java, cache, [\"title\"]);\nresult;\n</js>$[*]",
+      "chapterName": "$.title",
+      "chapterUrl": "$.url",
+      "updateTime": "//p//text()",
+      "nextTocUrl": ""
     },
     "searchUrl": "https://www.inc.com/",
     "weight": 0,

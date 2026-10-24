@@ -143,5 +143,73 @@ for (const url of ['https://onlinelibrary.wiley.com/search', 'https://onlinelibr
   s.ruleToc.isVip = '$.vip';
   s.ruleToc.nextTocUrl = '';
 }
+/* Inc.com: the category pages are DataDome-protected, while the public RSS
+ * feed remains available. Use it for discovery so the source still produces
+ * chapters when a category WebView cannot pass the challenge. */
+const incRssExplore = `<js>
+function responseBody(response) {
+  try {
+    if (!response) return "";
+    var body = response.body;
+    if (body != null && typeof body !== "function") return String(body);
+    if (typeof body === "function") return String(body.call(response));
+  } catch (e) {}
+  return String(response || "");
+}
+var feed = org.jsoup.Jsoup.parse(responseBody(java.ajax("https://www.inc.com/rss")), "", org.jsoup.parser.Parser.xmlParser());
+var rows = [];
+feed.select("item").forEach(function(item) {
+  var link = item.select("link").first(), title = item.select("title").text().trim();
+  var url = link ? String(link.text() || link.html() || "").trim() : "";
+  var description = item.select("description").text().trim();
+  var enclosure = item.select("enclosure").first(), cover = enclosure ? String(enclosure.attr("url") || "").trim() : "";
+  if (cover && cover.toLowerCase().indexOf(".webp") >= 0 && cover.indexOf("/f_jpg/") < 0) cover = cover.replace("/image/upload/", "/image/upload/f_jpg/");
+  if (url && title) rows.push({title: title, url: url, description: description, cover: cover});
+});
+JSON.stringify(rows);
+</js>$[*]`;
+{
+  const s = source('https://www.inc.com/');
+  s.ruleExplore.bookList = incRssExplore;
+  s.ruleExplore.bookUrl = '$.url';
+  s.ruleExplore.name = '$.title';
+  s.ruleExplore.intro = '$.description';
+  s.ruleExplore.coverUrl = '$.cover';
+}
+const incRssToc = `<js>
+function responseBody(response) {
+  try {
+    if (!response) return "";
+    var body = response.body;
+    if (body != null && typeof body !== "function") return String(body);
+    if (typeof body === "function") return String(body.call(response));
+  } catch (e) {}
+  return String(response || "");
+}
+var target = String(baseUrl || ""), comma = target.indexOf(",{");
+if (comma >= 0) target = target.substring(0, comma);
+function sameUrl(a, b) {
+  a = String(a || ""); b = String(b || "");
+  while (a.length && a.charAt(a.length - 1) === "/") a = a.substring(0, a.length - 1);
+  while (b.length && b.charAt(b.length - 1) === "/") b = b.substring(0, b.length - 1);
+  return a === b;
+}
+var feed = org.jsoup.Jsoup.parse(responseBody(java.ajax("https://www.inc.com/rss")), "", org.jsoup.parser.Parser.xmlParser());
+var rows = [];
+feed.select("item").forEach(function(item) {
+  var link = item.select("link").first(), url = link ? String(link.text() || link.html() || "").trim() : "";
+  var title = item.select("title").text().trim();
+  if (url && title && sameUrl(url, target)) rows.push({title: title, url: url});
+});
+result = TJ(JSON.stringify(rows), java, cache, ["title"]);
+result;
+</js>$[*]`;
+{
+  const s = source('https://www.inc.com/');
+  s.ruleToc.chapterList = incRssToc;
+  s.ruleToc.chapterName = '$.title';
+  s.ruleToc.chapterUrl = '$.url';
+  s.ruleToc.nextTocUrl = '';
+}
 fs.writeFileSync(file, JSON.stringify(sources, null, 2) + '\n');
 console.log(`repaired ${file}`);
