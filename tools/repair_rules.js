@@ -174,13 +174,16 @@ for (var i = 0; i < issueAnchors.size(); i++) {
 }
 var rows = [], seen = {};
 var freeWords = ["开放获取", "open access", "社论", "editorial", "出版商更正", "correction", "免费使用"];
-for (var ii = 0; ii < issueLinks.length; ii++) {
-  var issueDoc = org.jsoup.Jsoup.parse(responseBody(java.ajax(issueLinks[ii])));
+var issueDocs = [];
+if (root.select("a[href*='/doi/']").size() > 0) issueDocs.push(root);
+for (var il = 0; il < issueLinks.length; il++) issueDocs.push(org.jsoup.Jsoup.parse(responseBody(java.ajax(issueLinks[il]))));
+for (var ii = 0; ii < issueDocs.length; ii++) {
+  var issueDoc = issueDocs[ii];
   var articleLinks = issueDoc.select("a[href*='/doi/']");
   for (var ai = 0; ai < articleLinks.size(); ai++) {
     var anchor = articleLinks.get(ai), item = anchor.parent ? anchor.parent() : null;
     if (!item || !(item.hasClass && item.hasClass("issue-item"))) continue;
-    var url = absolute(anchor.attr("href")), title = String(anchor.text() || "").replace(/\\s+/g, " ").trim();
+    var url = absolute(anchor.attr("href")), title = String(anchor.text() || "").replace(/\s+/g, " ").trim();
     if (!url || !title || title.toLowerCase() === "issue information" || seen[url]) continue;
     seen[url] = true;
     var itemText = String(item.text() || "").toLowerCase(), isFree = false;
