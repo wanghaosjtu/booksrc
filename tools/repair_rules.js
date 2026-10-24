@@ -102,7 +102,7 @@ function irisUrl(response){
 var irisResponse = result;
 if (irisChallenge(irisBody(irisResponse))) {
   var irisRequestUrl = irisUrl(irisResponse);
-  if (!/^https?:\\/\\//i.test(irisRequestUrl)) throw "IRIS验证地址无效";
+  if (!/^https?:\/\//i.test(irisRequestUrl)) throw "IRIS验证地址无效";
   var irisVerified = java.startBrowserAwait(irisRequestUrl, "IRIS Cloudflare验证", true);
   if (irisChallenge(irisBody(irisVerified))) throw "IRIS Cloudflare验证未解除";
   irisResponse = irisVerified;
