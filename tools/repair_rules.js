@@ -166,6 +166,27 @@ if (irisChallenge(irisBody(irisResponse))) {
 }
 irisResponse;`;
 }
+/* Annual Reviews is reachable from the phone through its plain-HTTP
+ * endpoint. Keep the bookSourceUrl (the source identity) unchanged, but make
+ * discovery, pagination, and article requests use the direct HTTP endpoint
+ * the user selected. Links in the returned HTML are often absolute HTTPS
+ * links, so normalize those before Legado opens the next request. */
+{
+  const s = source('https://www.annualreviews.org');
+  const http = (value) => String(value || '').replace(/https:\/\/www\.annualreviews\.org/gi, 'http://www.annualreviews.org');
+  const normalizeRule = `<js>\nvar annualUrl=Array.isArray(result)?(result[0]||\"\"):String(result||\"\");\nvar annualPrefix=\"https://www.annualreviews.org\";\nif(annualUrl.indexOf(annualPrefix)===0)annualUrl=\"http://www.annualreviews.org\"+annualUrl.substring(annualPrefix.length);\nresult=annualUrl;\nresult;\n</js>`;
+  s.exploreUrl = http(s.exploreUrl);
+  s.searchUrl = http(s.searchUrl);
+  const cleanRule = (value) => {
+    const text = String(value || '');
+    const marker = '\n<js>\nvar annualUrl=';
+    const at = text.indexOf(marker);
+    return at >= 0 ? text.substring(0, at) : text;
+  };
+  s.ruleExplore.bookUrl = cleanRule(s.ruleExplore.bookUrl) + '\n' + normalizeRule;
+  s.ruleToc.chapterUrl = cleanRule(s.ruleToc.chapterUrl) + '\n' + normalizeRule;
+  s.ruleToc.nextTocUrl = cleanRule(s.ruleToc.nextTocUrl) + '\n' + normalizeRule;
+}
 /* IEEE directory pages only need article titles translated.  Abstracts remain
  * available as raw update metadata and are not sent through Edge. */
 {
@@ -393,11 +414,33 @@ incResponse;
 {
   const s = source('https://www.inc.com/');
   const content = String(s.ruleContent && s.ruleContent.content || '');
-  const replacement = String.raw`var incLower=html.toLowerCase(),incBlocked=incLower.indexOf("datadome")>=0||incLower.indexOf("please enable js and disable any ad blocker")>=0||incLower.indexOf("enable javascript and cookies")>=0||incLower.indexOf("verify you are human")>=0;
-if(incBlocked){var incUrl=String(baseUrl||""),incCut=incUrl.indexOf(",{ ");if(incCut<0)incCut=incUrl.indexOf(",{");if(incCut>=0)incUrl=incUrl.substring(0,incCut);if(incUrl.indexOf("http://")===0||incUrl.indexOf("https://")===0)java.log("Inc.com DataDome challenge: " + incUrl);throw "Inc.com需要人工验证，请完成后重试";}
+  const replacement = String.raw`function incBody(response) {
+  try {
+    if (!response) return "";
+    var body = response.body;
+    if (body != null && typeof body !== "function") return String(body);
+    if (typeof body === "function") return String(body.call(response));
+  } catch (e) {}
+  return String(response || "");
+}
+function incChallenge(body) {
+  var text = String(body || "").toLowerCase();
+  return text.indexOf("datadome") >= 0 || text.indexOf("please enable js and disable any ad blocker") >= 0 || text.indexOf("enable javascript and cookies") >= 0 || text.indexOf("verify you are human") >= 0;
+}
+html=incBody(result);
+var incBlocked=incChallenge(html);
+if(incBlocked){
+  var incUrl=String(baseUrl||""),incCut=incUrl.indexOf(",{ ");
+  if(incCut<0)incCut=incUrl.indexOf(",{");
+  if(incCut>=0)incUrl=incUrl.substring(0,incCut);
+  if(incUrl.indexOf("http://")!==0&&incUrl.indexOf("https://")!==0)throw "Inc.com验证地址无效";
+  java.log("Inc.com DataDome challenge: " + incUrl);
+  try{html=incBody(java.startBrowserAwait(incUrl,"Inc.com人工验证",true));}catch(e){throw "Inc.com需要人工验证，请完成后重试";}
+  if(incChallenge(html))throw "Inc.com人工验证未解除，请完成后重试";
+}
 if(html.length<5000||/展开以继续阅读|continue reading|read more/i.test(html)){`;
   const parts = content.split("\n");
-  const start = parts.findIndex(function(line) { return line.indexOf('var incLower=html.toLowerCase()') >= 0; });
+  const start = parts.findIndex(function(line) { return line.indexOf('var incLower=html.toLowerCase()') >= 0 || line.indexOf('function incBody(response)') >= 0; });
   const body = parts.findIndex(function(line, index) { return index > start && line.indexOf('try{var u=String(baseUrl') >= 0; });
   if (body >= 0) {
     const begin = start >= 0 ? start : parts.findIndex(function(line) { return line.indexOf('if(html.length<5000') >= 0; });
