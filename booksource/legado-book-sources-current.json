@@ -816,14 +816,14 @@
     "respondTime": 180000,
     "ruleBookInfo": {
       "coverUrl": "div#detail img.0@src",
-      "intro": "@js:\nvar purl=String(baseUrl||book.bookUrl||\"\"),d=org.jsoup.Jsoup.parse(String(result||\"\")),ls=d.select(\"p a[href]\"),idx=(purl.indexOf(\"/hqwg/\")>=0||purl.indexOf(\"/hqwglist/\")>=0)?0:1,u=\"\";if(ls.size()>idx)u=String(ls.get(idx).attr(\"href\")||\"\");if(u&&u.indexOf(\"http\")!==0){var h=purl.indexOf(\"https://\")===0?\"https://www.qstheory.cn\":\"http://www.qstheory.cn\";if(u.indexOf(\"//\")===0)u=(purl.indexOf(\"https://\")===0?\"https:\":\"http:\")+u;else if(u.charAt(0)===\"/\")u=h+u;else u=h+\"/\"+u;}if(u){var x=org.jsoup.Jsoup.parse(String(java.ajax(u)||\"\")),c=x.select(\"#detailContent,#detail,.text\").first();result=c?String(c.text()):\"\";}else result=\"\";result;"
+      "intro": "@js:\nvar purl=String(baseUrl||book.bookUrl||\"\"),d=org.jsoup.Jsoup.parse(String(result||\"\")),ls=d.select(\"p a[href]\"),idx=1,u=\"\";\nif(ls.size()>idx)u=String(ls.get(idx).attr(\"href\")||\"\");\nif(u&&u.indexOf(\"http\")!==0){\n  var h=purl.indexOf(\"https://\")===0?\"https://www.qstheory.cn\":\"http://www.qstheory.cn\";\n  if(u.indexOf(\"//\")===0)u=(purl.indexOf(\"https://\")===0?\"https:\":\"http:\")+u;\n  else if(u.charAt(0)===\"/\")u=h+u;\n  else{var slash=h.lastIndexOf(\"/\");u=h.substring(0,slash+1)+u;}\n}\nif(u){var x=org.jsoup.Jsoup.parse(String(java.ajax(u)||\"\")),c=x.select(\"#detailContent,#detail,.text\").first();result=c?String(c.text()):\"\";}else result=\"\";\nresult;"
     },
     "ruleContent": {
       "content": "//div[@class=\"inner\"]\n<js>\nhtml=result\nJsoup = org.jsoup.Jsoup\nvar doc = Jsoup.parse(html);\n\n// 仅遍历具有 data-src 属性的 img 标签 \ndoc.select(\"img[src]\").forEach(function(img)  {\n    //var dataSrc = img.attr(\"data-src\"); \n    //img.attr(\"src\",  dataSrc); // 将 data-src 的值赋给 src 属性 \n    \n    // 使用 Iterator 遍历并删除除 src 以外的所有属性 \n    var attributes = img.attributes().iterator(); \n    while (attributes.hasNext())  {\n        var attr = attributes.next(); \n        if (attr.getKey()  != \"src\") {\n            attributes.remove();  // 使用 Iterator#remove() 安全删除属性 \n        }\n    }\n});\nresult=doc.html()\nresult\n</js>",
       "imageStyle": "FULL"
     },
     "ruleExplore": {
-      "bookList": "- div.booktitle a\n<js>\n// add below to end\n//{{java.put(\"page\",page);\"\"}} \n//java.log(\"result:\"+result)\npage=java.get(\"page\") \n//java.log(\"page:\"+page)\nbasehost=\"http://www.qstheory.cn/\"\nlength=result.length\nele = result[page -1]\n//java.log(ele.attr('href'))\nyearurl = ele.attr('href')\nif (!yearurl.startsWith(\"http\")) {\n    yearurl = basehost + yearurl\n}\njava.ajax(yearurl)\n</js>\np:has(strong)",
+      "bookList": "- div.booktitle a\n<js>\nvar p=java.get(\"page\");\npage=parseInt(p,10)||1;\nvar ele=result[page-1]||result[0];\nif(!ele){result=\"\";}else{\n  var yearurl=String(ele.attr(\"href\")||\"\");\n  if(yearurl.indexOf(\"http\")!==0){\n    var base=String(baseUrl||\"http://www.qstheory.cn/\");\n    if(yearurl.indexOf(\"//\")===0)yearurl=\"http:\"+yearurl;\n    else if(yearurl.charAt(0)===\"/\")yearurl=base.replace(/\\/$/,\"\")+yearurl;\n    else{\n      var slash=base.lastIndexOf(\"/\");\n      yearurl=base.substring(0,slash+1)+yearurl;\n    }\n  }\n  java.ajax(yearurl);\n}\n</js>\np:has(strong)",
       "bookUrl": "a@href",
       "name": "a@text"
     },
@@ -3221,7 +3221,7 @@
       "name": "{{book.originName+\" \" + java.get(\"key\")}}\n"
     },
     "ruleToc": {
-      "chapterList": "<js>\nvar raw=String(result||\"\");if(typeof TJ===\"function\")raw=TJ(raw,java,cache,[\"articleTitle\",\"abstract\"]);try{var obj=JSON.parse(raw);result=JSON.stringify(obj.records||[]);}catch(e){result=\"[]\";}result;\n</js>\n$[*]",
+      "chapterList": "<js>\nvar raw=String(result||\"\");if(typeof TJ===\"function\")raw=TJ(raw,java,cache,[\"articleTitle\"]);try{var obj=JSON.parse(raw);result=JSON.stringify(obj.records||[]);}catch(e){result=\"[]\";}result;\n</js>\n$[*]",
       "chapterName": "$.articleTitle",
       "chapterUrl": "$.htmlLink##$##,{\"webView\":true,\"webViewDelayTime\":6000}",
       "isVip": "$.accessType.type\n@js:\nresult ==\"locked\"",
@@ -3400,7 +3400,7 @@
     "exploreUrl": "Journal of Management::https://sage.cnpereading.com/loi/JOM\nAdministrative Science Quarterly::https://sage.cnpereading.com/loi/ASQ\nEntrepreneurship Theory and Practice::https://sage.cnpereading.com/loi/ETP\nJournal of Marketing::https://sage.cnpereading.com/loi/JMX\nJournal of Marketing Research::https://sage.cnpereading.com/loi/MRJ\nJournal of Service Research::https://sage.cnpereading.com/loi/JSR",
     "header": "@js:\nvar p=source.getLoginInfoMap().get(\"proxyUrl\");JSON.stringify(p?{\"proxy\":p}:{});",
     "lastUpdateTime": 1792410016526,
-    "loginUrl": "http://b.r88r.top/e/action/ListInfo/?classid=112",
+    "loginUrl": "function setTargetLang() {\n    var choice = result && result[\"翻译语言\"] ? String(result[\"翻译语言\"]) : \"简体中文\";\n    var targets = {\"简体中文\": \"zh-Hans\", \"繁体中文\": \"zh-Hant\", \"文言文\": \"lzh\"};\n    java.put(\"TARGET_LANG\", targets[choice] || \"zh-Hans\");\n}\n\nfunction login() {\n    setTargetLang();\n}\n",
     "respondTime": 180000,
     "ruleBookInfo": {
       "author": "h1#journal-title@text"
@@ -4435,7 +4435,7 @@
       "intro": "div.item > div.content > p@text"
     },
     "ruleContent": {
-      "content": "//div[@class=\"main_content\"]\n<js>var d=org.jsoup.Jsoup.parseBodyFragment(String(result||\"\"));function rmNext(e){try{var n=e.nextElementSibling();e.remove();if(n)n.remove();}catch(x){}}var ts=d.select(\"p.main_content_top_title\");if(ts.size()>1)ts.get(1).remove();var ab=d.select(\"div.main_content_top_btn\");if(ab.size()>2)ab.get(2).remove();var hs=d.select(\"div.main_content_center_left_one_title\");for(var i=0;i<hs.size();i++){var h=hs.get(i),t=String(h.text()).trim();if(/^Abstract$|^Graphical abstract$|^Key words$/i.test(t))rmNext(h);}d.select(\".main_content_center_left_one_cankaowenxian,.ckankaowenfdifn,.main_content_center_left_yinyong,.main_content_center_right,.main_content_center_right_pdf\").remove();var ps=d.select(\"p\");for(var j=0;j<ps.size();j++)if(/^Chinese Academy of Engineering project/i.test(String(ps.get(j).text()).trim()))ps.get(j).remove();result=\"\"+d.body().html();if(typeof TH===\"function\")result=TH(result,java,cache,{remove_selector:[\"script\",\"noscript\",\"style\",\"main aside\",\"span[style*=display:none]\",\"img[src*='/post/smile']\",\"div.main_content_center_left_div_img_shuoming\",\"div.daochu_div\",\"span.main_content_center_left_one_title_div_two\"],extract_selector:[],formula_mode:\"none\",formula_selector:\"\"});result;</js>",
+      "content": "//div[@class=\"main_content\"]\n<js>var d=org.jsoup.Jsoup.parseBodyFragment(String(result||\"\"));function rmNext(e){try{var n=e.nextElementSibling();e.remove();if(n)n.remove();}catch(x){}}var ts=d.select(\"p.main_content_top_title\");if(ts.size()>1)ts.get(1).remove();var ab=d.select(\"div.main_content_top_btn\");if(ab.size()>2)ab.get(2).remove();var hs=d.select(\"div.main_content_center_left_one_title\");for(var i=0;i<hs.size();i++){var h=hs.get(i),t=String(h.text()).trim();if(/^Abstract$|^Graphical abstract$|^Key words$/i.test(t))rmNext(h);}d.select(\".main_content_top_div,.main_content_top_title,.main_content_top_btn,.Author_contribution,.Author_contribution_content,#correspAuthorsNoteTextCn,.main_content_center_left_one_title.yijibiaotidkk,.main_content_center_left_zhengwen_bao_denglu,.main_content_center_left_one_cankaowenxian,.ckankaowenfdifn,.main_content_center_left_yinyong,.main_content_center_right,.main_content_center_right_pdf\").remove();var ps=d.select(\"p\");for(var j=0;j<ps.size();j++)if(/^Chinese Academy of Engineering project/i.test(String(ps.get(j).text()).trim()))ps.get(j).remove();result=\"\"+d.body().html();if(typeof TH===\"function\")result=TH(result,java,cache,{remove_selector:[\"script\",\"noscript\",\"style\",\"main aside\",\"span[style*=display:none]\",\"img[src*='/post/smile']\",\"div.main_content_center_left_div_img_shuoming\",\"div.daochu_div\",\"span.main_content_center_left_one_title_div_two\"],extract_selector:[],formula_mode:\"none\",formula_selector:\"\"});result;</js>",
       "nextContentUrl": "a.fir@href",
       "replaceRegex": "##<span.*type=\"outline\">.*</span>##"
     },
