@@ -68,6 +68,49 @@ result;`;
   }
 }
 
+/* DoD pages may mention Cloudflare in normal HTML after verification. Only
+ * treat concrete challenge markers as a failed response. */
+{
+  const antiBotLoginCheck = String.raw`function antiBotBody(response) {
+    try {
+        if (response == null) return "";
+        var body = response.body;
+        if (body != null && typeof body !== "function") return String(body);
+        if (typeof body === "function") return String(body.call(response));
+    } catch (e) {}
+    return typeof response === "string" ? String(response) : "";
+}
+function antiBotBlocked(body) {
+    var text = String(body || "").toLowerCase();
+    return text.indexOf("just a moment") >= 0 ||
+        text.indexOf("performing security verification") >= 0 ||
+        text.indexOf("challenge-platform") >= 0 ||
+        text.indexOf("verify you are human") >= 0 ||
+        text.indexOf("enable javascript and cookies to continue") >= 0 ||
+        (text.indexOf("cf-chl-") >= 0 && text.indexOf("challenge") >= 0) ||
+        (text.indexOf("access denied") >= 0 && (text.indexOf("ray id") >= 0 || text.indexOf("cloudflare") >= 0)) ||
+        text.indexOf("errors.edgesuite.net") >= 0 ||
+        (text.indexOf("akamai") >= 0 && text.indexOf("reference #") >= 0);
+}
+var antiBotResponse = result;
+if (antiBotBlocked(antiBotBody(antiBotResponse))) {
+    var antiBotUrl = "";
+    try {
+        var antiBotResponseUrl = antiBotResponse && antiBotResponse.url;
+        if (typeof antiBotResponseUrl === "function") antiBotResponseUrl = antiBotResponseUrl.call(antiBotResponse);
+        if (antiBotResponseUrl) antiBotUrl = String(antiBotResponseUrl);
+    } catch (e) {}
+    if (!antiBotUrl) try { antiBotUrl = String(java.url || baseUrl || ""); } catch (e) {}
+    try { antiBotUrl = decodeURIComponent(antiBotUrl); } catch (e) {}
+    if (!/^https?:\/\//i.test(antiBotUrl) || antiBotUrl.indexOf("{{") >= 0) throw "反爬验证地址无效";
+    java.log("站点反爬拦截，打开原请求验证页: " + antiBotUrl);
+    antiBotResponse = java.startBrowserAwait(antiBotUrl, "站点人工验证", false);
+    if (antiBotBlocked(antiBotBody(antiBotResponse))) throw "人工验证未解除站点反爬拦截";
+}
+antiBotResponse;`;
+  for (const url of ['https://www.defense.gov', 'https://www.defense.gov/News']) source(url).loginCheckJs = antiBotLoginCheck;
+}
+
 /* Sage's loginUrl is a script hook, not the unrelated “文献虫” URL. Keep the
  * existing loginUi/header (including the user's proxy choices) untouched. */
 {
