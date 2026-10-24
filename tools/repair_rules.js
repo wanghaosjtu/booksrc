@@ -214,7 +214,19 @@ result;
 {
   const s = source('https://www.inc.com/');
   const content = String(s.ruleContent && s.ruleContent.content || '');
-  const replacement = String.raw`if(src&&/img-cdn\.inc\.com\/image\/upload\//i.test(src)){if(src.indexOf("/f_webp")>=0)src=src.replace("/f_webp","/f_jpg");else if(/\.webp(?:[?#]|$)/i.test(src)&&src.indexOf("/f_jpg/")<0)src=src.replace("/image/upload/","/image/upload/f_jpg/");}`;
+  const replacement = String.raw`function incJpg(value) {
+  var text = String(value || '');
+  if (text.toLowerCase().indexOf('img-cdn.inc.com/image/upload/') < 0) return text;
+  return text.replace('f_webp', 'f_jpg').replace('.webp', '.jpg');
+}
+var imageAttrs = ['src', 'data-src', 'data-original', 'data-lazy-src', 'data-srcset', 'srcset'];
+for (var imageIndex = 0; imageIndex < imgs.size(); imageIndex++) {
+  var image = imgs.get(imageIndex);
+  for (var attrIndex = 0; attrIndex < imageAttrs.length; attrIndex++) {
+    var attrName = imageAttrs[attrIndex], attrValue = image.attr(attrName);
+    if (attrValue) image.attr(attrName, incJpg(attrValue));
+  }
+}`;
   const parts = content.split("\n");
   const idx = parts.findIndex(function(line) { return line.indexOf('img-cdn') >= 0 && line.indexOf('f_jpg') >= 0; });
   if (idx >= 0) s.ruleContent.content = parts.slice(0, idx).concat([replacement], parts.slice(idx + 1)).join("\n");
@@ -268,9 +280,13 @@ incResponse;
 if(incBlocked){var incUrl=String(baseUrl||""),incCut=incUrl.indexOf(",{ ");if(incCut<0)incCut=incUrl.indexOf(",{");if(incCut>=0)incUrl=incUrl.substring(0,incCut);if(incUrl.indexOf("http://")===0||incUrl.indexOf("https://")===0)java.log("Inc.com DataDome challenge: " + incUrl);throw "Inc.com需要人工验证，请完成后重试";}
 if(html.length<5000||/展开以继续阅读|continue reading|read more/i.test(html)){`;
   const parts = content.split("\n");
-  const idx = parts.findIndex(function(line) { return line.indexOf('if(html.length<5000') >= 0; });
-  if (idx >= 0) s.ruleContent.content = parts.slice(0, idx).concat(replacement.split("\n"), parts.slice(idx + 1)).join("\n");
-  else if (content.indexOf(replacement) < 0) throw Error('inc content marker');
+  const start = parts.findIndex(function(line) { return line.indexOf('var incLower=html.toLowerCase()') >= 0; });
+  const body = parts.findIndex(function(line, index) { return index > start && line.indexOf('try{var u=String(baseUrl') >= 0; });
+  if (body >= 0) {
+    const begin = start >= 0 ? start : parts.findIndex(function(line) { return line.indexOf('if(html.length<5000') >= 0; });
+    if (begin < 0) throw Error('inc content marker');
+    s.ruleContent.content = parts.slice(0, begin).concat(replacement.split("\n"), parts.slice(body)).join("\n");
+  } else if (content.indexOf(replacement) < 0) throw Error('inc content marker');
 }
 {
   const s = source('https://www.inc.com/');
