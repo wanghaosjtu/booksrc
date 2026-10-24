@@ -53,6 +53,20 @@ result;`;
   s.ruleBookInfo.intro = 'meta[name="description"]@content';
   s.ruleBookInfo.author = 'meta[name="author"]@content||@js:"求是网"';
 }
+/* Science has fewer archive links than arbitrary page values supplied by
+ * Legado's discovery pager.  Do not call attr() on an out-of-range element;
+ * an unavailable archive page should simply produce an empty list. */
+{
+  const s = source('https://www.science.org/toc/science/current');
+  const old = String(s.ruleExplore && s.ruleExplore.bookList || '');
+  const unsafe = "ele = result[length-page]\njava.log(ele.attr('href'))\nyearurl=basehost + ele.attr('href')\njava.ajax(yearurl)";
+  const fixed = "var scienceIndex=length-page\nif(scienceIndex<0||scienceIndex>=length){result=\"\";}else{\nvar ele=result[scienceIndex]\njava.log(ele.attr('href'))\nyearurl=basehost + ele.attr('href')\nresult=java.ajax(yearurl)\n}";
+  if (old.indexOf(unsafe) >= 0) {
+    s.ruleExplore.bookList = old.replace('page=java.get(\"page\") ', 'page=parseInt(java.get(\"page\"),10)||1;').replace(unsafe, fixed);
+  } else if (old.indexOf('var scienceIndex=length-page') < 0) {
+    throw new Error('Science explore boundary marker not found');
+  }
+}
 
 /* Sage's loginUrl is a script hook, not the unrelated “文献虫” URL. Keep the
  * existing loginUi/header (including the user's proxy choices) untouched. */

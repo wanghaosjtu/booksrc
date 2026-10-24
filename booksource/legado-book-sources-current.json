@@ -105,7 +105,7 @@
       "imageStyle": "FULL"
     },
     "ruleExplore": {
-      "bookList": " li[role=\"presentation\"] a\n<js>\n// add below to end\n//{{java.put(\"page\",page);\"\"}} \n//java.log(\"result:\"+result)\npage=java.get(\"page\") \njava.log(\"page:\"+page)\nbasehost=\"https://www.science.org\"\nlength=result.length\nele = result[length-page]\njava.log(ele.attr('href'))\nyearurl=basehost + ele.attr('href')\njava.ajax(yearurl)\n</js>\ndiv.past-issue__image",
+      "bookList": " li[role=\"presentation\"] a\n<js>\n// add below to end\n//{{java.put(\"page\",page);\"\"}} \n//java.log(\"result:\"+result)\npage=parseInt(java.get(\"page\"),10)||1;\njava.log(\"page:\"+page)\nbasehost=\"https://www.science.org\"\nlength=result.length\nvar scienceIndex=length-page\nif(scienceIndex<0||scienceIndex>=length){result=\"\";}else{\nvar ele=result[scienceIndex]\njava.log(ele.attr('href'))\nyearurl=basehost + ele.attr('href')\nresult=java.ajax(yearurl)\n}\n</js>\ndiv.past-issue__image",
       "bookUrl": "/../@href",
       "coverUrl": "/img/@src",
       "name": "/../@title"
