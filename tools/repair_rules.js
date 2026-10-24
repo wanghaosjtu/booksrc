@@ -440,16 +440,33 @@ function incChallenge(body) {
   var text = String(body || "").toLowerCase();
   return text.indexOf("datadome") >= 0 || text.indexOf("please enable js and disable any ad blocker") >= 0 || text.indexOf("enable javascript and cookies") >= 0 || text.indexOf("verify you are human") >= 0;
 }
+function incArticle(body) {
+  try {
+    var d = org.jsoup.Jsoup.parse(String(body || ""));
+    return String(d.select("article,main,[role=main],.article-body,.article-content,.content-body,.entry-content,.story-body").text()).trim().length > 500;
+  } catch (e) { return false; }
+}
+function incUrlValue() {
+  var u=String(baseUrl||""),cut=u.indexOf(",{ ");
+  if(cut<0)cut=u.indexOf(",{");
+  if(cut>=0)u=u.substring(0,cut);
+  if(u.indexOf("http://")!==0&&u.indexOf("https://")!==0)throw "Inc.com验证地址无效";
+  return u;
+}
 html=incBody(result);
 var incBlocked=incChallenge(html);
 if(incBlocked){
-  var incUrl=String(baseUrl||""),incCut=incUrl.indexOf(",{ ");
-  if(incCut<0)incCut=incUrl.indexOf(",{");
-  if(incCut>=0)incUrl=incUrl.substring(0,incCut);
-  if(incUrl.indexOf("http://")!==0&&incUrl.indexOf("https://")!==0)throw "Inc.com验证地址无效";
-  java.log("Inc.com DataDome challenge: " + incUrl);
-  try{html=incBody(java.startBrowserAwait(incUrl,"Inc.com人工验证",true));}catch(e){throw "Inc.com需要人工验证，请完成后重试";}
-  if(incChallenge(html))throw "Inc.com人工验证未解除，请完成后重试";
+  var incUrl=incUrlValue();
+  java.log("Inc.com DataDome challenge，尝试 WebView: " + incUrl);
+  try {
+    var autoHtml=incBody(java.webView(null,incUrl,null));
+    if(autoHtml && incArticle(autoHtml)){html=autoHtml;incBlocked=false;}
+  } catch(e){java.log("Inc WebView refetch failed: " + e);}
+  if(incBlocked){
+    java.log("Inc.com DataDome challenge，打开人工验证: " + incUrl);
+    try{html=incBody(java.startBrowserAwait(incUrl,"Inc.com人工验证",true));}catch(e){throw "Inc.com需要人工验证，请完成后重试";}
+    if(incChallenge(html)&&!incArticle(html))throw "Inc.com人工验证未解除，请完成后重试";
+  }
 }
 if(html.length<5000||/展开以继续阅读|continue reading|read more/i.test(html)){`;
   const parts = content.split("\n");
