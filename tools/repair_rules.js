@@ -220,5 +220,46 @@ result;
   if (idx >= 0) s.ruleContent.content = parts.slice(0, idx).concat([replacement], parts.slice(idx + 1)).join("\n");
   else if (content.indexOf(replacement) < 0) throw Error('inc image marker');
 }
+const incLoginCheck = `<js>
+function incBody(response) {
+  try {
+    if (!response) return "";
+    var body = response.body;
+    if (body != null && typeof body !== "function") return String(body);
+    if (typeof body === "function") return String(body.call(response));
+  } catch (e) {}
+  return String(response || "");
+}
+function incChallenge(body) {
+  var t = String(body || "").toLowerCase();
+  return t.indexOf("datadome") >= 0 ||
+    t.indexOf("please enable js and disable any ad blocker") >= 0 ||
+    t.indexOf("enable javascript and cookies") >= 0 ||
+    t.indexOf("verify you are human") >= 0;
+}
+function incResponseUrl(response) {
+  try {
+    var u = response && response.url;
+    if (typeof u === "function") u = u.call(response);
+    if (u) return String(u);
+  } catch (e) {}
+  var fallback = String(java.url || baseUrl || ""), cut = fallback.indexOf(",{ ");
+  if (cut < 0) cut = fallback.indexOf(",{");
+  return cut >= 0 ? fallback.substring(0, cut) : fallback;
+}
+var incResponse = result;
+if (incChallenge(incBody(incResponse))) {
+  var incUrl = incResponseUrl(incResponse);
+  if (incUrl.indexOf("https://") !== 0 && incUrl.indexOf("http://") !== 0) throw "Inc.com验证地址无效";
+  java.log("Inc.com 触发 DataDome，打开人工验证: " + incUrl);
+  incResponse = java.startBrowserAwait(incUrl, "Inc.com 人工验证", false);
+  if (incChallenge(incBody(incResponse))) throw "Inc.com验证未解除拦截";
+}
+incResponse;
+</js>`;
+{
+  const s = source('https://www.inc.com/');
+  s.loginCheckJs = incLoginCheck.replace("<js>\n", "").replace("\n</js>", "");
+}
 fs.writeFileSync(file, JSON.stringify(sources, null, 2) + '\n');
 console.log(`repaired ${file}`);
