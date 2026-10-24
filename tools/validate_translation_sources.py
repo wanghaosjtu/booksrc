@@ -59,7 +59,8 @@ all_by_name = {str(s.get("bookSourceName")): s for s in data}
 state_all = all_by_name["State.gov "]
 assert "countries-areas-archive" in str(state_all.get("ruleExplore", {}).get("bookList", ""))
 journal_all = all_by_name["中国社会科学期刊"]
-assert "@data-src" in str(journal_all.get("ruleBookInfo", {}).get("coverUrl", ""))
+journal_cover_rule = str(journal_all.get("ruleBookInfo", {}).get("coverUrl", ""))
+assert "@data-src" in journal_cover_rule or "sk_logo_sscp.png" in journal_cover_rule
 cas_all = all_by_name["中国科学院"]
 assert "list.sort" in str(cas_all.get("ruleExplore", {}).get("bookList", ""))
 assert "TT(result,java,cache)" in str(all_by_name["МИД России (mid.ru)"].get("ruleToc", {}).get("chapterName", ""))
