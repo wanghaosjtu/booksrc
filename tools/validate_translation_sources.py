@@ -12,6 +12,9 @@ assert "function _ltMarker(" in runtime
 assert "function _ltSplitLabeled(" in runtime
 assert "function _ltFallbackValues(" in runtime
 assert "String(attr.getKey()) !== \"src\"" in runtime
+assert "https://edge.microsoft.com/translate/auth" not in runtime
+assert "function _ltAuth(" not in runtime
+assert 'Authorization:\"Bearer \"' in runtime
 assert "if (!token) return scalar ? output[0] : output;" not in runtime
 all_translation_sources = [s for s in data if any(x in json.dumps(s, ensure_ascii=False).lower() for x in ("microsoft", "edge.microsoft.com", "translatetext")) and s.get("bookSourceName") != "Test"]
 # The formal set is identified by the shared runtime and explicit translation metadata,

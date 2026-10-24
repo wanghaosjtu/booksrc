@@ -35,15 +35,19 @@ function labeledTranslation(value, mode) {
 
 function fakeJava(mode) {
   const requests = [];
+  const authHeaders = [];
   return {
     requests,
+    authHeaders,
+    authCalls: 0,
     get(key) { return key === 'TARGET_LANG' ? 'zh-Hans' : ''; },
-    ajax() { return ''; },
+    ajax(url) { if (String(url).indexOf('/translate/auth') >= 0) this.authCalls += 1; return ''; },
     ajaxAll(urls) {
       return urls.map((url) => {
         const options = JSON.parse(url.slice(url.indexOf(',') + 1));
         const body = JSON.parse(options.body);
         requests.push(body);
+        authHeaders.push(options.headers.Authorization);
         const value = String(body[0] || '');
         const text = value.indexOf('<|L') >= 0
           ? labeledTranslation(value, mode)
@@ -61,6 +65,8 @@ function checkMode(mode) {
   const output = TT(input, java, cache);
   assert.strictEqual(java.requests[0].length, 1, mode + ': must send one long value');
   assert.ok(java.requests[0][0].indexOf('<|L1|>') >= 0, mode + ': missing numbered marker');
+  assert.strictEqual(java.authCalls, 0, mode + ': must not request translate auth');
+  assert.ok(java.authHeaders.every((value) => value === 'Bearer '), mode + ': must send an empty Bearer token');
   return {java, cache, output};
 }
 
@@ -89,6 +95,10 @@ assert.strictEqual(TT(['retry me'], failedJava, failedCache)[0], 'retry me');
 const failedCount = failedJava.requests.length;
 assert.strictEqual(TT(['retry me'], failedJava, failedCache)[0], 'retry me');
 assert.ok(failedJava.requests.length > failedCount, 'failed translations must not be cached');
+
+const scalarJava = fakeJava('normal');
+assert.strictEqual(TT('one scalar', scalarJava, new Cache()), 'CTX:one scalar');
+assert.strictEqual(scalarJava.authCalls, 0, 'scalar translation must not request translate auth');
 
 const java = fakeJava('normal');
 const json = JSON.parse(TJ(JSON.stringify({
