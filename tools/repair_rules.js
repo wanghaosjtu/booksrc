@@ -49,6 +49,9 @@ if(u&&u.indexOf("http")!==0){
 }
 if(u){var x=org.jsoup.Jsoup.parse(String(java.ajax(u)||"")),c=x.select("#detailContent,#detail,.text").first();result=c?String(c.text()):"";}else result="";
 result;`;
+  s.ruleBookInfo.name = 'meta[name="description"]@content\n<js>\nvar t=String(result||"").split("-")[0].trim();result=t;\n</js>';
+  s.ruleBookInfo.intro = 'meta[name="description"]@content';
+  s.ruleBookInfo.author = 'meta[name="author"]@content||@js:"求是网"';
 }
 
 /* Sage's loginUrl is a script hook, not the unrelated “文献虫” URL. Keep the
@@ -67,6 +70,45 @@ function login() {
 `;
 }
 
+/* IRIS: use ordinary HTTP first; only invoke WebView when Cloudflare actually
+ * returns a challenge page, so normal requests avoid the slow browser path. */
+{
+  const s = source('https://www.iris-france.org/search/all/all/post/');
+  s.loginCheckJs = String.raw`function irisBody(response){
+  try {
+    if (!response) return "";
+    var body = response.body;
+    if (body != null && typeof body !== "function") return String(body);
+    if (typeof body === "function") return String(body.call(response));
+  } catch (e) {}
+  return String(response || "");
+}
+function irisChallenge(body){
+  var t = String(body || "").toLowerCase();
+  return t.indexOf("just a moment") >= 0 ||
+    t.indexOf("enable javascript and cookies") >= 0 ||
+    t.indexOf("verify you are human") >= 0 ||
+    (t.indexOf("cf-chl-") >= 0 && t.indexOf("challenge") >= 0) ||
+    (t.indexOf("access denied") >= 0 && t.indexOf("ray id") >= 0);
+}
+function irisUrl(response){
+  try {
+    var u = response && response.url;
+    if (typeof u === "function") u = u.call(response);
+    if (u) return String(u);
+  } catch (e) {}
+  return String(java.url || baseUrl || "");
+}
+var irisResponse = result;
+if (irisChallenge(irisBody(irisResponse))) {
+  var irisRequestUrl = irisUrl(irisResponse);
+  if (!/^https?:\\/\\//i.test(irisRequestUrl)) throw "IRIS验证地址无效";
+  var irisVerified = java.startBrowserAwait(irisRequestUrl, "IRIS Cloudflare验证", true);
+  if (irisChallenge(irisBody(irisVerified))) throw "IRIS Cloudflare验证未解除";
+  irisResponse = irisVerified;
+}
+irisResponse;`;
+}
 /* IEEE directory pages only need article titles translated.  Abstracts remain
  * available as raw update metadata and are not sent through Edge. */
 {
@@ -84,6 +126,21 @@ function login() {
 for (const url of ['https://onlinelibrary.wiley.com/search', 'https://onlinelibrary.wiley.com/back']) {
   const s = source(url);
   s.exploreUrl = String(s.exploreUrl || '').replace(/,\{"webView":true\}/g, '');
+  s.ruleExplore.bookUrl = String(s.ruleExplore && s.ruleExplore.bookUrl || '').replace('##$##,{"webView":true}', '');
+  if (s.ruleSearch) s.ruleSearch.bookUrl = String(s.ruleSearch.bookUrl || '').replace('##$##,{"webView":true}', '').replace(',{"webView":true}', '');
+  const directFetch = String.raw`<js>
+var rawUrl=String(baseUrl||"");
+var comma=rawUrl.indexOf(",{" );if(comma>=0)rawUrl=rawUrl.substring(0,comma);
+var path=rawUrl.replace("https://onlinelibrary.wiley.com/","").replace("http://onlinelibrary.wiley.com/","");
+var proxy="";try{proxy=String(source.getLoginInfoMap().get("proxyUrl")||"");}catch(e){}
+if(proxy&&proxy.charAt(proxy.length-1)!=="/")proxy+="/";
+var requestUrl=proxy?proxy+path:"http://onlinelibrary.wiley.com/"+path;
+try{var response=java.ajax(requestUrl);if(response)result=response;}catch(e){java.log("Wiley HTTP refetch failed: "+e);}
+result;
+</js>`;
+  const marker = 'div.article__body@html';
+  const markerAt = String(s.ruleContent && s.ruleContent.content || '').indexOf(marker);
+  if (markerAt >= 0) s.ruleContent.content = directFetch + String(s.ruleContent.content).substring(markerAt);
 }
 
 /* Wiley changed its issue pages from the old item__body markup to a journal
