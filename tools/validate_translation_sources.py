@@ -76,6 +76,10 @@ assert all("cfResponse=java.startBrowserAwait(cfUrl,\"Cloudflare人工验证\",t
 assert "startBrowserAwait(url, \"IEEE 验证\", true)" in str(all_by_name["IEEE"].get("loginCheckJs", ""))
 assert "TH(result, java, cache" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterList", ""))
 assert "TT(result, java, cache)" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterName", ""))
+carnegie = by_name["Carnegie Mosco"]
+assert "http://carnegie.ru/" in str(carnegie.get("exploreUrl", ""))
+assert "https://carnegie.ru" not in str(carnegie.get("exploreUrl", ""))
+assert "https://carnegie.ru" not in str(carnegie.get("ruleToc", {}))
 assert "notranslate_selector" in str(by_name["Nature"].get("ruleContent", {}).get("content", ""))
 assert "image_anchor_mode" in str(by_name["ScienceDirect"].get("ruleContent", {}).get("content", ""))
 assert "image_alt_selector" in str(by_name["Wiley"].get("ruleContent", {}).get("content", ""))

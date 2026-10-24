@@ -187,6 +187,19 @@ irisResponse;`;
   s.ruleToc.chapterUrl = cleanRule(s.ruleToc.chapterUrl) + '\n' + normalizeRule;
   s.ruleToc.nextTocUrl = cleanRule(s.ruleToc.nextTocUrl) + '\n' + normalizeRule;
 }
+/* Carnegie's HTTPS endpoint stalls on the phone while the same public pages
+ * are served immediately over HTTP. The user explicitly approved this
+ * transport downgrade for this source. Keep the source identity HTTPS, but
+ * use the working direct endpoint for discovery, pagination, and chapter links. */
+{
+  const s = source('https://carnegie.ru/');
+  const http = (value) => String(value || '').replace(/https:\/\/carnegie\.ru/gi, 'http://carnegie.ru');
+  s.exploreUrl = http(s.exploreUrl);
+  s.header = String(s.header || '').replace(/https:\/\/carnegie\.ru/gi, 'http://carnegie.ru');
+  s.ruleToc.chapterUrl = http(s.ruleToc.chapterUrl).replace(/https:/g, 'http:');
+  s.ruleToc.nextTocUrl = http(s.ruleToc.nextTocUrl).replace(/https:/g, 'http:');
+}
+
 /* IEEE directory pages only need article titles translated.  Abstracts remain
  * available as raw update metadata and are not sent through Edge. */
 {
