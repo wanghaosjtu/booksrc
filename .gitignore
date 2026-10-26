@@ -1,0 +1,25 @@
+# Local task/session configuration and evidence
+.codex/
+.omo/
+.claude/
+
+# Phone exports, backups, and runtime test reports (may contain private IPs/cookies)
+rsssource/backups/
+rsssource/reports/
+rsssource/*candidate*.json
+rsssource/legado-rss-sources-live-waf-check-candidate.json
+rsssource/legado-rss-sources-springer-current-issue-candidate.json
+
+# Local source clones and generated archives
+legado/
+legado-E/
+calibre/
+archive/
+booksource/archive/
+booksource/BookSource_*.json
+
+# Local debug artifacts
+*.log
+*.html
+state.json
+tools/__pycache__/
