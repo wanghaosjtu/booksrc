@@ -74,7 +74,11 @@ assert "startBrowserAwait" in str(all_by_name["inc.com"].get("ruleContent", {}).
 assert "java.webView" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
 assert all("java.getStrResponse" not in str(x.get("loginCheckJs", "")) for x in data)
 assert all("cfResponse=java.startBrowserAwait(cfUrl,\"Cloudflare人工验证\",true)" not in str(x.get("loginCheckJs", "")) for x in data)
-assert "startBrowserAwait(url, \"IEEE 验证\", true)" in str(all_by_name["IEEE"].get("loginCheckJs", ""))
+ieee_rule = all_by_name["IEEE"]
+assert str(ieee_rule.get("ruleToc", {}).get("chapterUrl", "")) == "$.htmlLink"
+assert "webView" not in str(ieee_rule.get("ruleToc", {}).get("chapterUrl", ""))
+assert "/rest/document/" in str(ieee_rule.get("ruleContent", {}).get("content", ""))
+assert "startBrowserAwait" not in str(ieee_rule.get("loginCheckJs", ""))
 assert "TH(result, java, cache" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterList", ""))
 assert "TT(result, java, cache)" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterName", ""))
 carnegie = by_name["Carnegie Mosco"]
@@ -87,7 +91,7 @@ assert "image_alt_selector" in str(by_name["Wiley"].get("ruleContent", {}).get("
 assert "https://mid.ru/" in str(by_name["МИД России (mid.ru)"].get("ruleContent", {}).get("content", ""))
 assert "https://riss.ru/upload/" in str(by_name["俄罗斯战略研究所(RISS)"].get("ruleContent", {}).get("content", ""))
 assert "ieeeBlocked" in str(by_name["IEEE"].get("loginCheckJs", ""))
-assert "startBrowserAwait" in str(by_name["IEEE"].get("loginCheckJs", ""))
+assert "TH(String(ieeeRawDoc.body().html()), java, cache" in str(by_name["IEEE"].get("ruleContent", {}).get("content", ""))
 content_abstracted = [s for s in sources if "TH(result" in str(s.get("ruleContent", {}).get("content", "")) or "TC(" in str(s.get("ruleContent", {}).get("content", ""))]
 assert len(content_abstracted) >= 50
 assert all("translatetext" not in str(s.get("ruleContent", {}).get("content", "")) for s in sources)
