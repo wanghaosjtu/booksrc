@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { applyIncHttpRules } = require('./inc_http_rules');
 
 const path = 'booksource/legado-book-sources-current.json';
 const sources = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -102,26 +103,9 @@ function lightWebViewCleanup(selectors) {
   };
 }
 
-/* Inc: WebView only performs bounded DOM cleanup and always returns HTML.
- * Readability-style candidate scoring lives in the content rule instead of a
- * long asynchronous WebView script. */
-{
-  const s = byUrl('https://www.inc.com/');
-  s.exploreUrl = 'inc.com::https://www.inc.com,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nStartup::https://www.inc.com/startup,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nGrow::https://www.inc.com/grow,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nLead::https://www.inc.com/lead,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nTech::https://www.inc.com/technology,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nInnovate::https://www.inc.com/innovate,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nMoney::https://www.inc.com/money,{' + '"webView":true,"webViewDelayTime":5000}' +
-    '\nBrandview::https://www.inc.com/brandview,{' + '"webView":true,"webViewDelayTime":5000}';
-  s.ruleToc.chapterUrl = '//h2/../@href##$##,{"webView":true,"webViewDelayTime":5000}';
-  s.ruleContent = {
-    content: '@css:body@html\n<js>\nvar html=String(result||"");\nvar doc=org.jsoup.Jsoup.parseBodyFragment(html);\nvar candidates=doc.select("article,main,[role=main],.article-body,.article-content,.content-body,.entry-content,.story-body");\nvar best=null,bestScore=0;\nfor(var i=0;i<candidates.size();i++){\n  var e=candidates.get(i),txt=""+e.text(),cls=(""+e.className()).toLowerCase();\n  if(!txt||txt.length<120)continue;\n  var score=txt.length+e.select("p").size()*180+e.select("h2,h3").size()*80;\n  if(/nav|menu|footer|sidebar|related|comment|social|advert|promo/.test(cls))score-=txt.length;\n  if(score>bestScore){bestScore=score;best=e;}\n}\nif(!best)best=doc.body();\nbest.select("script,noscript,style,nav,header,footer,aside,form,.advertisement,.ad,.ads,.related,.social-share,.newsletter,.subscribe").remove();\nresult=""+best.html();\nif(typeof TH==="function")result=TH(result,java,cache,{remove_selector:[],extract_selector:[],formula_mode:"none",formula_selector:""});\nresult;\n</js>',
-    imageStyle: 'FULL',
-    webJs: lightWebViewCleanup(['script','noscript','style','nav','aside','header','footer','ent-hubspot-newsletter','ent-results','.ent-component','.ad','.advertisement'])
-  };
-}
+/* Preserve the established discovery/book rules (which may use WebView), but
+ * require a normal HTTP URL and HTTP-only body/image extraction for articles. */
+applyIncHttpRules(byUrl('https://www.inc.com/'));
 
 /* CNKI: identity loginCheckJs deliberately returns the original response;
  * it does not mistake the journal security page for an application login and

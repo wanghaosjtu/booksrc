@@ -64,15 +64,29 @@ assert "@data-src" in journal_cover_rule or "sk_logo_sscp.png" in journal_cover_
 cas_all = all_by_name["中国科学院"]
 assert "list.sort" in str(cas_all.get("ruleExplore", {}).get("bookList", ""))
 assert "TT(result,java,cache)" in str(all_by_name["МИД России (mid.ru)"].get("ruleToc", {}).get("chapterName", ""))
-assert "img[data-srcset]" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-assert "read-more" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
+inc_all = all_by_name["inc.com"]
+inc_content = str(inc_all.get("ruleContent", {}).get("content", ""))
+inc_login = str(inc_all.get("loginCheckJs", ""))
+inc_chapter_url = str(inc_all.get("ruleToc", {}).get("chapterUrl", ""))
+# Discovery may retain WebView for DataDome-protected category/book pages, but
+# article URLs, article parsing, and image URLs are all ordinary HTTP.
+assert "webView" in str(inc_all.get("exploreUrl", ""))
+assert inc_chapter_url == "$.url"
+assert "webView" not in inc_chapter_url
+assert "article-container.readMoreArticle" in inc_content
+assert ".content-chunk" in inc_content
+assert "self.__next_f.push" in inc_content and "JSON.parse(matched[1])" in inc_content
+assert "img-cdn.inc.com/image/upload/" in inc_content and "f_jpg" in inc_content
+assert "java.webView" not in inc_content
+assert "startBrowserAwait" not in inc_content
+assert "incDataDome" in inc_login
+assert inc_login.count("startBrowserAwait") == 1
+assert "java.webView" not in inc_login
+assert "java.getStrResponse" in inc_login
 annual = all_by_name["Annual Review\u00a0"]
 assert "http://www.annualreviews.org" in str(annual.get("exploreUrl", ""))
 assert "http://www.annualreviews.org" in str(annual.get("searchUrl", ""))
 assert "annualPrefix" in str(annual.get("ruleToc", {}).get("chapterUrl", ""))
-assert "startBrowserAwait" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-assert "java.webView" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-assert all("java.getStrResponse" not in str(x.get("loginCheckJs", "")) for x in data)
 assert all("cfResponse=java.startBrowserAwait(cfUrl,\"Cloudflare人工验证\",true)" not in str(x.get("loginCheckJs", "")) for x in data)
 ieee_rule = all_by_name["IEEE"]
 assert str(ieee_rule.get("ruleToc", {}).get("chapterUrl", "")) == "$.htmlLink"
