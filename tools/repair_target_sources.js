@@ -1,5 +1,4 @@
 const fs = require('fs');
-const { applyIncHttpRules } = require('./inc_http_rules');
 
 const path = 'booksource/legado-book-sources-current.json';
 const sources = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -103,9 +102,7 @@ function lightWebViewCleanup(selectors) {
   };
 }
 
-/* Preserve the established discovery/book rules (which may use WebView), but
- * require a normal HTTP URL and HTTP-only body/image extraction for articles. */
-applyIncHttpRules(byUrl('https://www.inc.com/'));
+/* Inc.com is maintained directly in the canonical source. */
 
 /* CNKI: identity loginCheckJs deliberately returns the original response;
  * it does not mistake the journal security page for an application login and

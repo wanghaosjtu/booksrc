@@ -3,7 +3,6 @@
 'use strict';
 
 const fs = require('node:fs');
-const { applyIncHttpRules } = require('./inc_http_rules');
 
 const file = process.argv[2] || 'booksource/legado-book-sources-current.json';
 const sources = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -295,9 +294,7 @@ for (const url of ['https://onlinelibrary.wiley.com/search', 'https://onlinelibr
   s.ruleToc.isVip = '$.vip';
   s.ruleToc.nextTocUrl = '';
 }
-/* Inc discovery and book rules intentionally remain untouched: category pages
- * may use their existing WebView settings.  Only article auth/body handling is
- * replaced, and the article URL stays plain HTTP. */
-applyIncHttpRules(source('https://www.inc.com/'));
+/* Inc.com is maintained directly in the canonical source.  Do not replace its
+ * user-reviewed category, directory, or article rules here. */
 fs.writeFileSync(file, JSON.stringify(sources, null, 2) + '\n');
 console.log(`repaired ${file}`);
