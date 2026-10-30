@@ -71,9 +71,13 @@ inc_chapter_url = str(inc_all.get("ruleToc", {}).get("chapterUrl", ""))
 # Discovery may retain WebView for DataDome-protected category/book pages, but
 # article URLs, article parsing, and image URLs are all ordinary HTTP.
 assert "webView" in str(inc_all.get("exploreUrl", ""))
-assert inc_chapter_url == "$.url"
+assert inc_chapter_url.startswith("//h2/../@href\n<js>\n// Inc article URL: absolute HTTP link")
 assert "webView" not in inc_chapter_url
-assert "article-container.readMoreArticle" in inc_content
+assert "src=`Web::https://www.inc.com/" in str(inc_all.get("ruleExplore", {}).get("bookList", ""))
+assert "https://www.inc.com/rss" not in str(inc_all.get("ruleExplore", {}))
+assert "article" in str(inc_all.get("ruleToc", {}).get("chapterList", ""))
+assert "article .article-container.readMoreArticle" in inc_content
+assert "article .article-container').first()" in inc_content
 assert ".content-chunk" in inc_content
 assert "self.__next_f.push" in inc_content and "JSON.parse(matched[1])" in inc_content
 assert "img-cdn.inc.com/image/upload/" in inc_content and "f_jpg" in inc_content

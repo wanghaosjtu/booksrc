@@ -62,8 +62,12 @@ const incContent = String.raw`@css:body@html
 <js>
 var incHtml = String(result || '');
 function incContainer(doc) {
+  // Older pages use readMoreArticle; current pages omit that class but retain
+  // the same article/container/content-chunk body hierarchy.
   var node = doc.select('article .article-container.readMoreArticle').first();
+  if (!node) node = doc.select('article .article-container').first();
   if (!node) node = doc.select('.article-container.readMoreArticle').first();
+  if (!node) node = doc.select('.article-container').first();
   return node;
 }
 function incLength(node) {
@@ -131,13 +135,52 @@ if (typeof TH === 'function') result = TH(result, java, cache, {
 result;
 </js>`;
 
+
+function plainIncArticleUrl(rule) {
+  const value = String(rule || '');
+  const optionsAt = value.lastIndexOf(',{');
+  if (optionsAt < 0) return value;
+  try {
+    const options = JSON.parse(value.slice(optionsAt + 1));
+    if (!options.webView) return value;
+    delete options.webView;
+    delete options.webViewDelayTime;
+    const keys = Object.keys(options);
+    return value.slice(0, optionsAt) + (keys.length ? ',' + JSON.stringify(options) : '');
+  } catch (_) {
+    return value.replace(/,\s*\{\s*"webView"\s*:\s*true\s*\}\s*$/i, '');
+  }
+}
+
+function incArticleUrlRule(rule) {
+  var selector = plainIncArticleUrl(rule);
+  var marker = '\n<js>\n// Inc article URL: absolute HTTP link without inherited listing options.';
+  var markerAt = selector.indexOf(marker);
+  if (markerAt >= 0) selector = selector.slice(0, markerAt);
+  if (!selector.trim()) throw new Error('Inc.com article URL rule is empty');
+  return selector + [
+    '', '<js>',
+    '// Inc article URL: absolute HTTP link without inherited listing options.',
+    "var incArticleUrl = String(result || '').trim();",
+    "var incLineBreak = incArticleUrl.indexOf('\\n');",
+    'if (incLineBreak >= 0) incArticleUrl = incArticleUrl.slice(0, incLineBreak).trim();',
+    "var incOptionsAt = incArticleUrl.indexOf(',{');",
+    "if (incOptionsAt >= 0) incArticleUrl = incArticleUrl.slice(0, incOptionsAt).trim();",
+    "if (incArticleUrl.indexOf('//') === 0) incArticleUrl = 'https:' + incArticleUrl;",
+    "else if (incArticleUrl.indexOf('http://') !== 0 && incArticleUrl.indexOf('https://') !== 0) {",
+    "  incArticleUrl = incArticleUrl.charAt(0) === '/' ? 'https://www.inc.com' + incArticleUrl : 'https://www.inc.com/' + incArticleUrl;",
+    '}',
+    'result = incArticleUrl;', 'result;', '</js>'
+  ].join('\n');
+}
+
 function applyIncHttpRules(source) {
   if (!source || source.bookSourceUrl !== 'https://www.inc.com/') {
     throw new Error('Inc.com source not found');
   }
   source.loginCheckJs = incLoginCheck;
   source.ruleToc = source.ruleToc || {};
-  source.ruleToc.chapterUrl = '$.url';
+  source.ruleToc.chapterUrl = incArticleUrlRule(source.ruleToc.chapterUrl);
   source.ruleContent = source.ruleContent || {};
   source.ruleContent.content = incContent;
   source.ruleContent.imageStyle = 'FULL';
@@ -145,4 +188,4 @@ function applyIncHttpRules(source) {
   return source;
 }
 
-module.exports = { incLoginCheck, incContent, applyIncHttpRules };
+module.exports = { incLoginCheck, incContent, plainIncArticleUrl, incArticleUrlRule, applyIncHttpRules };
