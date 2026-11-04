@@ -32,6 +32,9 @@ assert "ieee-article-preamble" not in content
 assert "'div.toc-container'" not in content[content.index("remove_selector:"):content.index("formula_mode:")]
 assert "a.toc-link" not in content[content.index("remove_selector:"):content.index("formula_mode:")]
 assert "formula_mode: 'codecogs'" in content
+assert "formula_speech: true" in content
+assert all("formula_speech: true" not in str(item.get("ruleContent", {}).get("content", ""))
+           for item in data if item is not source), "speech is opt-in for IEEE only"
 assert "image_anchor_mode: 'href'" in content
 assert "image_anchor_options: {headers:{Referer:ieeeReferer}}" in content
 assert "ieeexplore.ieee.org/mediastore/" in content and '"webView"' not in content

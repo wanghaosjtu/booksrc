@@ -1,0 +1,47 @@
+[
+  {
+    "bookSourceName": "第一财经杂志",
+    "bookSourceUrl": "https://www.cbnweek.com",
+    "bookSourceType": 0,
+    "bookSourceComment": "第一财经杂志 cbnweek.com，JSON API 型书源。话题作为书，文章作为章节。API: api.cbnweek.com/v5/",
+    "enabled": true,
+    "enabledExplore": true,
+    "exploreUrl": "读新数::https://api.cbnweek.com/v5/topics/34/articles?page=1\n记者手记::https://api.cbnweek.com/v5/topics/29/articles?page=1\n设计手记::https://api.cbnweek.com/v5/topics/33/articles?page=1\n职场课堂::https://api.cbnweek.com/v5/topics/27/articles?page=1\n城市研究所::https://api.cbnweek.com/v5/topics/10/articles?page=1\n金字招牌::https://api.cbnweek.com/v5/topics/31/articles?page=1\n特别报道::https://api.cbnweek.com/v5/topics/71/articles?page=1\n硅谷来信::https://api.cbnweek.com/v5/topics/47/articles?page=1",
+    "searchUrl": "@js:\njava.put('CBN_KEY', key || '');\n'https://api.cbnweek.com/v5/neocortex/articles?q=' + java.encodeURI(key) + '&page=' + (page||1);",
+    "ruleSearch": {
+      "bookList": "@js:[1]",
+      "bookUrl": "@js:baseUrl",
+      "name": "@js:'搜索: ' + (java.get('CBN_KEY') || '')",
+      "author": "@js:'第一财经杂志'",
+      "intro": "@js:''",
+      "coverUrl": "@js:'https://imgcdn.cbnweek.com/favicon.ico'",
+      "checkKeyWord": "AI"
+    },
+    "ruleExplore": {
+      "bookList": "@js:[1]",
+      "bookUrl": "@js:baseUrl",
+      "name": "@js:\nvar m={'34':'读新数','29':'记者手记','33':'设计手记','27':'职场课堂','10':'城市研究所','31':'金字招牌','71':'特别报道','47':'硅谷来信'};\nvar match=baseUrl.match(/\\/topics\\/(\\d+)\\//);var id=match?match[1]:'';m[id]||'第一财经';",
+      "author": "@js:'第一财经杂志'",
+      "intro": "@js:''",
+      "coverUrl": "@js:''"
+    },
+    "ruleBookInfo": {
+      "init": "@js:result",
+      "name": "@js:book.name||''",
+      "author": "@js:'第一财经杂志'",
+      "intro": "@js:''",
+      "coverUrl": "@js:''",
+      "tocUrl": "@js:book.bookUrl"
+    },
+    "ruleToc": {
+      "chapterList": "@json:$.data[*]",
+      "chapterName": "@json:$.title",
+      "chapterUrl": "@js:\nvar obj=typeof result==='object'?result:JSON.parse(String(result||'{}'));\n'https://api.cbnweek.com/v5/articles/'+obj.id;",
+      "nextTocUrl": "@js:\nvar d=JSON.parse(result);\nvar meta=d.meta||{};\nvar np=meta.next_page;\nif(np){\n  var base=baseUrl.replace(/[?&]page=\\d+/,'');\n  (base.indexOf('?')>=0 ? base+'&page='+np : base+'?page='+np);\n}else{''};"
+    },
+    "ruleContent": {
+      "content": "@js:\nvar d=JSON.parse(result);\nvar data=d.data||{};\nvar html=data.content||'';\nhtml=html.replace(/src=\"\\//g,'src=\"https://imgcdn.cbnweek.com/').replace(/href=\"\\//g,'href=\"https://www.cbnweek.com/');\nhtml;"
+    },
+    "header": "{\"Origin\":\"https://www.cbnweek.com\",\"Referer\":\"https://www.cbnweek.com/\",\"User-Agent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\"}"
+  }
+]

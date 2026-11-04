@@ -2,6 +2,7 @@
 """Inline the canonical translation runtime into the formal current source set."""
 import json
 import re
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,7 @@ TRANSLATION_FIELDS = {
     "jsLib", "ruleContent", "ruleToc", "remove_selector", "extract_selector",
     "toc_mode", "formula_mode", "formula_selector",
 }
-RUNTIME = (ROOT / "booksource/runtime/legado-translation-runtime.js").read_text(encoding="utf-8").rstrip()
+RUNTIME = (ROOT / "booksource/runtime/legado-translation-runtime.js").read_text(encoding="utf-8")
 MARKER = "/* legado-translation-runtime v1"
 
 def source_identity(source):
@@ -742,8 +743,38 @@ def assert_login_fields(data, backup_data, label):
     if errors:
         raise SystemExit("%s: protected login fields changed: %r" % (label, errors[:10]))
 
+def sync_runtime_only(data):
+    """Replace marked formal runtime suffixes without historical backups."""
+    selected = changed = 0
+    for source in data:
+        if source.get("bookSourceName") == "Test" or source.get("toc_mode") not in ("html", "json"):
+            continue
+        library = source.get("jsLib")
+        if not isinstance(library, str) or MARKER not in library:
+            continue
+        selected += 1
+        prefix = library[:library.index(MARKER)]
+        updated = prefix + RUNTIME
+        if updated != library:
+            source["jsLib"] = updated
+            changed += 1
+    if not selected:
+        raise SystemExit("no marked formal runtimes found")
+    return selected, changed
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runtime-only", action="store_true",
+                        help="only replace existing formal runtime suffixes; preserve every other field")
+    args = parser.parse_args()
     data = json.loads(SOURCE.read_text(encoding="utf-8"))
+    if args.runtime_only:
+        selected, changed = sync_runtime_only(data)
+        if changed:
+            SOURCE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print("runtime-only:", changed, "updated of", selected, "marked formal sources")
+        return
     backup_data = json.loads(LOGIN_BACKUP.read_text(encoding="utf-8"))
     backup_by_id = {source_identity(source): source for source in backup_data}
     # E-2 is the authoritative login/header baseline selected for this task.

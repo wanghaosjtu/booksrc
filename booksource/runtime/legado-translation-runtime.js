@@ -1,5 +1,5 @@
 /* legado-translation-runtime v1 */
-var LEGADO_TRANSLATION_RUNTIME="2";
+var LEGADO_TRANSLATION_RUNTIME="3";
 function _ltString(v){return v==null?"":String(v);}
 function _ltCacheGet(c,k){try{return c&&c.get(k);}catch(e){return null;}}
 function _ltCachePut(c,k,v,s){try{if(c)c.put(k,v,s);}catch(e){}}
@@ -115,10 +115,70 @@ function _ltPrepareImages(doc,base,options){
     }
 }
 function _ltCodecogs(doc,selector){var formulas,el,tex,tm,img,i;try{formulas=doc.select(selector); }catch(e){return;}for(i=0;i<formulas.size();i++){el=formulas.get(i);tex=_ltString(el.attr("data-tex")||el.attr("data-original-tex")||el.attr("alttext"));if(!tex){tm=el.select("tex-math").first();tex=tm?_ltString(tm.text()):"";}if(!tex)continue;try{img=doc.createElement("img");img.attr("src","https://latex.codecogs.com/svg.latex?"+encodeURIComponent(tex));img.attr("alt",tex);el.replaceWith(img);}catch(e){}}}
+function _ltFormulaEscaped(tex,index){var n=0;while(index>0&&tex.charAt(--index)==="\\")n++;return n%2===1;}
+function _ltFormulaTex(value){
+    var tex=_ltString(value).trim(),n=tex.length;
+    if(n>=4&&tex.substring(0,2)==="$$"&&tex.substring(n-2)==="$$"&&!_ltFormulaEscaped(tex,n-2))return tex.substring(2,n-2).trim();
+    if(n>=2&&tex.charAt(0)==="$"&&tex.charAt(1)!=="$"&&tex.charAt(n-1)==="$"&&(tex.charAt(n-2)!=="$"||_ltFormulaEscaped(tex,n-2))&&!_ltFormulaEscaped(tex,n-1))return tex.substring(1,n-1).trim();
+    if(n>=4&&(tex.substring(0,2)==="\\("&&tex.substring(n-2)==="\\)"||tex.substring(0,2)==="\\["&&tex.substring(n-2)==="\\]")&&!_ltFormulaEscaped(tex,n-2))return tex.substring(2,n-2).trim();
+    return tex;
+}
+function _ltCodecogsSpeechText(response){
+    try{var doc=org.jsoup.Jsoup.parse(_ltBody(response));if(!doc.select("math").size())return"";return _ltString(doc.select("span.cc-speech").text()).replace(/\s+/g," ").trim();}catch(e){return"";}
+}
+function _ltCodecogsSpeech(texes,j,cache){
+    var out={},seen={},pending=[],urls=[],i,tex,key,cached,wave,end,res,speech;
+    for(i=0;i<texes.length;i++){
+        tex=texes[i];key="$"+tex;if(!tex||seen[key])continue;seen[key]=true;
+        cached=_ltCacheGet(cache,"codecogs_speech:v2:"+tex);
+        if(cached!=null&&_ltString(cached).trim()){out[key]=_ltString(cached);continue;}
+        pending.push(tex);urls.push("https://latex.codecogs.com/mathml.latex?"+encodeURIComponent(tex));
+    }
+    for(wave=0;wave<urls.length;wave+=4){
+        if(wave)try{Packages.java.lang.Thread.sleep(500);}catch(ignore){}
+        end=Math.min(wave+4,urls.length);res=[];
+        // ajaxAll returns a Java array on the phone, not a java.util.List.
+        // A failed wave falls back locally; never retry per formula node.
+        try{res=j.ajaxAll(urls.slice(wave,end),false)||[];}catch(ignore){}
+        for(i=0;i<res.length&&wave+i<end;i++){
+            speech=_ltCodecogsSpeechText(res[i]);if(!speech)continue;
+            tex=pending[wave+i];out["$"+tex]=speech;_ltCachePut(cache,"codecogs_speech:v2:"+tex,speech,2592000);
+        }
+    }
+    return out;
+}
+function _ltCodecogsTex(el){
+    var tex=_ltString(el.attr("data-tex")).trim()||_ltString(el.attr("data-original-tex")).trim()||_ltString(el.attr("alttext")).trim(),tm;
+    if(!tex){tm=el.select("tex-math").first();tex=tm?_ltString(tm.text()):"";}
+    return _ltFormulaTex(tex);
+}
+function _ltCodecogsWithSpeech(doc,selector,j,cache){
+    var formulas,items=[],texes=[],el,tex,tm,semantic,math,fallback,speeches,img,label,i;
+    try{formulas=doc.select(selector);}catch(e){return;}
+    for(i=0;i<formulas.size();i++){
+        el=formulas.get(i);
+        // Only a convertible outer container owns nested math. A wrapper
+        // without TeX must not prevent a child with alttext from converting.
+        var parent=el.parent(),nested=false;
+        while(parent){try{if(parent.is(selector)&&_ltCodecogsTex(parent)){nested=true;break;}}catch(ignore){}parent=parent.parent();}
+        if(nested)continue;
+        tex=_ltCodecogsTex(el);if(!tex)continue;
+        semantic=_ltString(el.attr("data-semantic-speech")).trim();math=el.select("math");
+        fallback=semantic||_ltString(math.text()).trim()||_ltString(el.select("span.mi, mi").text()).trim()||tex;
+        items.push({el:el,tex:tex,fallback:fallback});texes.push(tex);
+    }
+    speeches=_ltCodecogsSpeech(texes,j,cache);
+    for(i=0;i<items.length;i++)try{
+        el=items[i].el;tex=items[i].tex;
+        img=doc.createElement("img");img.attr("src","https://latex.codecogs.com/svg.latex?"+encodeURIComponent(tex));img.attr("alt",tex);
+        label=doc.createElement("span");label.addClass("formula-speech");label.addClass("notranslate");label.text(" "+(speeches["$"+tex]||items[i].fallback)+" ");
+        el.replaceWith(img);img.after(label);
+    }catch(ignore){}
+}
 function _ltWiris(doc,selector,j){var formulas,el,mathml,body,opt,response,svg,imageSrc,speech,img,label,i;try{formulas=doc.select(selector||"math");}catch(e){return;}for(i=0;i<formulas.size();i++){el=formulas.get(i);mathml=_ltString(el.outerHtml());if(!mathml)continue;imageSrc="";try{body="mml="+encodeURIComponent(mathml);opt=JSON.stringify({method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body});response=j.ajax("https://www.wiris.net/demo/editor/render?format=svg,"+opt);svg=_ltString(response).trim();if(svg.indexOf("<svg")>=0&&j.base64Encode)imageSrc="data:image/svg+xml;base64,"+j.base64Encode(svg);}catch(e){try{j.log("WIRIS POST failed: "+e);}catch(ignore){}}if(!imageSrc)continue;try{speech=_ltString(el.attr("data-semantic-speech")||el.text()).replace(/\s+/g," ").trim();img=doc.createElement("img");img.attr("src",imageSrc);img.attr("alt",speech);el.replaceWith(img);if(speech){label=doc.createElement("span");label.addClass("formula-speech");label.addClass("notranslate");label.text(" "+speech+" ");img.after(label);}}catch(e){}}}
 function TH(html,j,cache,options){
     options=options||{};if(html==null||!_ltString(html).trim())return html;var doc=org.jsoup.Jsoup.parse(_ltString(html)),mode=options.formula_mode,selector=options.formula_selector;
     _ltRemove(doc,options.remove_selector||[]);if(!mode&&typeof formula_mode!=="undefined")mode=formula_mode;if(!selector&&typeof formula_selector!=="undefined")selector=formula_selector;
-    if(mode==="codecogs")_ltCodecogs(doc,selector||"math");else if(mode==="wiris")_ltWiris(doc,selector||"math",j);
+    if(mode==="codecogs"){if(options.formula_speech===true)_ltCodecogsWithSpeech(doc,selector||"math",j,cache);else _ltCodecogs(doc,selector||"math");}else if(mode==="wiris")_ltWiris(doc,selector||"math",j);
     _ltExtract(doc,options.extract_selector||(typeof extract_selector!=="undefined"?extract_selector:[]));_ltReplaceAltImages(doc,options.image_alt_selector||[]);_ltPrepareImages(doc,options.image_base_url||"",options);return TC(doc.body().html(),j,cache,options);
 }

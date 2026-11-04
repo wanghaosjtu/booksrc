@@ -60,9 +60,14 @@ state_all = all_by_name["State.gov "]
 assert "countries-areas-archive" in str(state_all.get("ruleExplore", {}).get("bookList", ""))
 journal_all = all_by_name["中国社会科学期刊"]
 journal_cover_rule = str(journal_all.get("ruleBookInfo", {}).get("coverUrl", ""))
-assert "@data-src" in journal_cover_rule or "sk_logo_sscp.png" in journal_cover_rule
+assert "sk_logo_sscp.png" not in journal_cover_rule
+assert "sk02-zgxp-book0.png" in journal_cover_rule and ".list_text_left .list_img" in journal_cover_rule
 cas_all = all_by_name["中国科学院"]
 assert "list.sort" in str(cas_all.get("ruleExplore", {}).get("bookList", ""))
+assert "webView" not in cas_all["ruleToc"]["chapterUrl"]
+assert "/doi/getFulltext" in cas_all["ruleContent"]["content"]
+assert "article.baseId" in cas_all["ruleContent"]["content"]
+assert len(all_by_name["МИД России (mid.ru)"]["exploreUrl"].splitlines()) == 1
 assert "TT(result,java,cache)" in str(all_by_name["МИД России (mid.ru)"].get("ruleToc", {}).get("chapterName", ""))
 assert "img[data-srcset]" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
 assert "read-more" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
@@ -70,6 +75,11 @@ annual = all_by_name["Annual Review\u00a0"]
 assert "http://www.annualreviews.org" in str(annual.get("exploreUrl", ""))
 assert "http://www.annualreviews.org" in str(annual.get("searchUrl", ""))
 assert "annualPrefix" in str(annual.get("ruleToc", {}).get("chapterUrl", ""))
+assert "webView" not in annual["ruleContent"]["content"]
+assert "#html_fulltext" in annual["ruleContent"]["content"]
+assert "#itemFullTextId[data-fulltexturl]" in annual["ruleContent"]["content"]
+assert r"\/deliver\/fulltext\/" in annual["ruleContent"]["content"]
+assert "sixResponse=java.connect" in annual["loginCheckJs"]
 assert "startBrowserAwait" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
 assert "java.webView" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
 assert all("java.getStrResponse" not in str(x.get("loginCheckJs", "")) for x in data)
@@ -92,7 +102,7 @@ assert "https://mid.ru/" in str(by_name["МИД России (mid.ru)"].get("rul
 assert "https://riss.ru/upload/" in str(by_name["俄罗斯战略研究所(RISS)"].get("ruleContent", {}).get("content", ""))
 assert "ieeeBlocked" in str(by_name["IEEE"].get("loginCheckJs", ""))
 assert "TH(String(ieeeRawDoc.body().html()), java, cache" in str(by_name["IEEE"].get("ruleContent", {}).get("content", ""))
-content_abstracted = [s for s in sources if "TH(result" in str(s.get("ruleContent", {}).get("content", "")) or "TC(" in str(s.get("ruleContent", {}).get("content", ""))]
+content_abstracted = [s for s in sources if any(marker in str(s.get("ruleContent", {}).get("content", "")) for marker in ("TH(result", "TC(", "sixFinish(out"))]
 assert len(content_abstracted) >= 50
 assert all("translatetext" not in str(s.get("ruleContent", {}).get("content", "")) for s in sources)
 state = next(s for s in sources if str(s.get("bookSourceName", "")).strip() == "State.gov")

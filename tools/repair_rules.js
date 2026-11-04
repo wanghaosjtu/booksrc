@@ -296,5 +296,7 @@ for (const url of ['https://onlinelibrary.wiley.com/search', 'https://onlinelibr
 }
 /* Inc.com is maintained directly in the canonical source.  Do not replace its
  * user-reviewed category, directory, or article rules here. */
+// Keep scoped six-source repairs last so older transport/template logic cannot undo them.
+for (const current of sources) require('./repair_six_sources').repair(current);
 fs.writeFileSync(file, JSON.stringify(sources, null, 2) + '\n');
 console.log(`repaired ${file}`);

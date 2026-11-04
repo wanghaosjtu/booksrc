@@ -1,0 +1,62 @@
+{
+  "bookSourceGroup": "美国海军学会",
+  "bookSourceName": "USNI - Proceedings & Naval History",
+  "bookSourceUrl": "https://www.usni.org",
+  "bookSourceType": 0,
+  "enabled": true,
+  "enabledExplore": true,
+  "enabledCookieJar": true,
+  "exploreUrl": "Proceedings (海军学报)::https://www.usni.org/proceedings-magazine/all-issues\nNaval History (海军历史)::https://www.usni.org/naval-history-magazine/all-issues",
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\", \"Accept-Language\": \"en-US,en;q=0.9\", \"Sec-Fetch-Dest\": \"document\", \"Sec-Fetch-Mode\": \"navigate\", \"Sec-Fetch-Site\": \"none\", \"Sec-Fetch-User\": \"?1\"}",
+  "loginUrl": "https://www.usni.org/magazines/proceedings",
+  "ruleSearch": {
+    "bookList": "@js:[1]",
+    "bookUrl": "@js:'https://www.usni.org/proceedings-magazine/all-issues'",
+    "name": "@js:'搜索: ' + (java.get('key') || '')",
+    "author": "@js:''",
+    "kind": "@js:''",
+    "intro": "@js:''",
+    "coverUrl": "@js:'https://www.usni.org/themes/custom/usni_bootstrap/dist/images/usni_logo_text_white.svg'",
+    "wordCount": "@js:''",
+    "lastChapter": ""
+  },
+  "ruleExplore": {
+    "bookList": "@css:h2",
+    "bookUrl": "@css:a@href\n@js:\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://www.usni.org' + url;\nurl",
+    "name": "@css:a@text",
+    "author": "@js:'U.S. Naval Institute'",
+    "kind": "@js:''",
+    "intro": "@js:''",
+    "coverUrl": "@js:'https://www.usni.org/themes/custom/usni_bootstrap/dist/images/usni_logo_text_white.svg'",
+    "wordCount": "@js:''",
+    "lastChapter": ""
+  },
+  "ruleBookInfo": {
+    "name": "@js:book.name",
+    "author": "@js:'U.S. Naval Institute'",
+    "kind": "@js:''",
+    "intro": "@js:book.name",
+    "coverUrl": "@js:book.coverUrl || 'https://www.usni.org/themes/custom/usni_bootstrap/dist/images/usni_logo_text_white.svg'",
+    "tocUrl": "@js:book.bookUrl",
+    "wordCount": "@js:''"
+  },
+  "ruleToc": {
+    "chapterList": "@css:h2",
+    "chapterName": "@css:a@text\n<js>\nvar TARGET_LANG = 'zh-Hans';\nfunction translateText(text, targetLang){\n  if (!text || !text.trim()) return text;\n  var AUTH = java.get('AUTH');\n  if (!AUTH) {\n    AUTH = java.ajax('https://edge.microsoft.com/translate/auth');\n    if (typeof AUTH === 'object' && AUTH.toString) AUTH = AUTH.toString();\n    java.put('AUTH', AUTH);\n  }\n  var body = JSON.stringify([text]);\n  var headers = {'Authorization': 'Bearer ' + AUTH, 'Content-Type': 'application/json'};\n  var option = JSON.stringify({'method': 'post', 'headers': headers, 'body': body});\n  var resp = java.ajax('https://edge.microsoft.com/translate/translatetext?to=' + targetLang + ',' + option);\n  if (resp && resp.trim()) {\n    var arr = JSON.parse(resp);\n    if (arr[0] && arr[0].translations && arr[0].translations[0]) {\n      return '-' + arr[0].translations[0].text;\n    }\n  }\n  return '-' + text;\n}\nif (!result) result = '';\nif (typeof result === 'string' && result.trim()) {\n  result = translateText(result, TARGET_LANG);\n}\nresult;\n</js>",
+    "chapterUrl": "@css:a@href\n@js:\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://www.usni.org' + url;\nurl",
+    "nextTocUrl": "",
+    "lastChapter": "",
+    "author": "",
+    "kind": "",
+    "wordCount": ""
+  },
+  "ruleContent": {
+    "content": "@css:div.field--name-body@html\n<js>\nif (!result || !result.trim()) {\n  result = '';\n}\nresult = result.replace(/src=\"\\/sites\\//g, 'src=\"https://www.usni.org/sites/');\nresult = result.replace(/href=\"\\/magazines\\//g, 'href=\"https://www.usni.org/magazines/');\nresult = result.replace(/href=\"\\/sites\\//g, 'href=\"https://www.usni.org/sites/');\nresult;\n</js>"
+  },
+  "jsLib": "",
+  "concurrentRate": "1",
+  "respondTime": 180000,
+  "customOrder": 0,
+  "lastUpdateTime": 0,
+  "weight": 0
+}

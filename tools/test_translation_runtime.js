@@ -9,9 +9,9 @@ vm.runInThisContext(fs.readFileSync('booksource/runtime/legado-translation-runti
 });
 
 class Cache {
-  constructor() { this.values = new Map(); }
+  constructor() { this.values = new Map(); this.puts = []; }
   get(key) { return this.values.has(key) ? this.values.get(key) : null; }
-  put(key, value) { this.values.set(key, value); }
+  put(key, value, seconds) { this.values.set(key, value); this.puts.push({key, value, seconds}); }
 }
 
 function labeledTranslation(value, mode) {
@@ -112,4 +112,81 @@ assert.ok(json.abstract.indexOf('CTX:') === 0);
 assert.strictEqual(json.htmlLink, 'https://example.test/a');
 assert.strictEqual(json.accessType.type, 'locked');
 
-console.log('translation runtime regression tests passed');
+// Real Jsoup parsing/DOM integration is covered by the phone regression.
+// A minimal response adapter keeps these batching/cache tests offline.
+global.org = {jsoup: {Jsoup: {parse(html) {
+  const text = String(html);
+  const match = text.match(/<span class="cc-speech">([\s\S]*?)<\/span>/);
+  return {select(selector) {
+    return {
+      size() { return selector === 'math' && /<math[ >]/.test(text) ? 1 : 0; },
+      text() { return selector === 'span.cc-speech' && match ? match[1] : ''; },
+    };
+  }};
+}}}};
+const pauses = [];
+global.Packages = {java: {lang: {Thread: {sleep(ms) { pauses.push(ms); }}}}};
+const equation = '\\begin{equation*}p_i=\\frac{x+\\$y}{\\|z\\|_2}\\tag{1}\\end{equation*}';
+for (const [input, expected] of [
+  ['$c$', 'c'], [' $\\tau _{1}$ ', '\\tau _{1}'],
+  [' $$ x + 1 $$ ', 'x + 1'], ['\\( x \\)', 'x'], ['\\[ x \\]', 'x'],
+  ['$' + equation + '$', equation], ['$x+\\$y$', 'x+\\$y'], ['x+\\$y', 'x+\\$y'],
+  ['$x+\\$$', 'x+\\$'], ['$\\$$', '\\$'],
+  ['$x\\$', '$x\\$'], ['$x', '$x'], ['x$', 'x$'], ['$$x$', '$$x$'],
+  ['$x$$', '$x$$'], ['\\(x\\]', '\\(x\\]'], ['$100', '$100'],
+  ['Costs $10 and $20.', 'Costs $10 and $20.'], ['$$$$', ''], [new String('$z$'), 'z'], [null, ''],
+]) assert.strictEqual(_ltFormulaTex(input), expected, 'outer delimiter normalization: ' + input);
+function speechResponse(text) {
+  return '<math><mi>x</mi></math><span class="cc-speech">' + text + '</span>';
+}
+assert.strictEqual(_ltCodecogsSpeechText({body() { return speechResponse(' x  equals\n 1 '); }}), 'x equals 1');
+assert.strictEqual(_ltCodecogsSpeechText({body: speechResponse('tau sub 1')}), 'tau sub 1');
+for (const response of ['', 'bad reply', '<math/>', '<span class="cc-speech">error</span>',
+  speechResponse('   ')]) assert.strictEqual(_ltCodecogsSpeechText(response), '');
+const speechCache = new Cache();
+const speechJava = {
+  waves: [],
+  ajax() { throw Error('must not retry serially'); },
+  ajaxAll(urls, webView) {
+    assert.strictEqual(webView, false);
+    this.waves.push(urls.slice());
+    // Java-array-shaped responses: indexed access and length, no size/get.
+    const result = {length: urls.length};
+    urls.forEach((url, index) => {
+      const tex = decodeURIComponent(url.slice(url.indexOf('?') + 1));
+      result[index] = {body() { return speechResponse('read ' + tex); }};
+    });
+    return result;
+  },
+};
+const expressions = Array.from({length: 9}, (_, i) => 'x_' + i);
+const speech = _ltCodecogsSpeech(expressions.concat(['x_0', '']), speechJava, speechCache);
+assert.deepStrictEqual(speechJava.waves.map(wave => wave.length), [4, 4, 1]);
+assert.deepStrictEqual(pauses, [500, 500]);
+assert.strictEqual(speech['$x_0'], 'read x_0');
+assert.strictEqual(speech['$x_8'], 'read x_8');
+assert.strictEqual(speechCache.puts.length, 9);
+assert.ok(speechCache.puts.every(item => item.seconds === 2592000 && item.key.startsWith('codecogs_speech:v2:')));
+assert.deepStrictEqual(_ltCodecogsSpeech(expressions, speechJava, speechCache), speech);
+assert.strictEqual(speechJava.waves.length, 3, 'warm speech cache must make zero network requests');
+for (const mode of ['throw', 'empty', 'malformed', 'missing']) {
+  const cache = new Cache();
+  let waves = 0;
+  const j = {
+    ajax() { throw Error('no single-node retry'); },
+    ajaxAll(urls) {
+      waves += 1;
+      if (mode === 'throw') throw Error('offline');
+      if (mode === 'missing') return [];
+      return urls.map(() => mode === 'empty' ? '' : 'not mathml');
+    },
+  };
+  assert.deepStrictEqual(_ltCodecogsSpeech(['x', 'x'], j, cache), {});
+  assert.deepStrictEqual(_ltCodecogsSpeech(['x'], j, cache), {});
+  assert.strictEqual(waves, 2, mode + ': failed responses must not be cached');
+  assert.strictEqual(cache.puts.length, 0);
+}
+const partial = _ltCodecogsSpeech(['a', 'b'], {ajaxAll() { return [speechResponse('a')]; }}, new Cache());
+assert.strictEqual(partial.$a, 'a');
+assert.strictEqual(partial.$b, undefined, 'missing response must not shift speech to a different formula');
+console.log('translation and formula speech runtime regression tests passed');

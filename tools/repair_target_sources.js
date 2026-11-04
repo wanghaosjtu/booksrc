@@ -152,41 +152,8 @@ cnkiResponse;`;
   if (s.ruleContent && s.ruleContent.webJs) s.ruleContent.webJs = lightWebViewCleanup(['script','noscript','style','nav','aside','footer','div.row.mb20','div.fdreedf','main aside']);
 }
 
-/* MID: TSPD verification is a session event, not a per-page login popup. */
-{
-  const s = byUrl('https://mid.ru');
-  s.loginCheckJs = String.raw`function midBody(response){
-  try{return String(response.body());}catch(e){return String(response||"");}
-}
-function midChallenge(body){
-  var t=String(body||"").toLowerCase();
-  return t.indexOf("bobcmn")>=0||t.indexOf("what code is in the image")>=0||t.indexOf('id="ans"')>=0||t.indexOf("support id")>=0||t.indexOf("data processing... please, wait")>=0;
-}
-function midState(){
-  var v="";
-  try{v=cache.get("mid_tspd_state");}catch(e){}
-  try{if(!v)v=java.get("mid_tspd_state");}catch(e){}
-  return String(v||"");
-}
-function setMidState(v){
-  try{cache.put("mid_tspd_state",v,1800);}catch(e){}
-  try{java.put("mid_tspd_state",v);}catch(e){}
-}
-var midResponse=result,midHtml=midBody(midResponse);
-if(midChallenge(midHtml)&&midState()!=="verified"){
-  var midUrl=String(java.url||baseUrl||"");
-  try{midUrl=decodeURIComponent(midUrl);}catch(e){}
-  if(!/^https?:\/\//i.test(midUrl)||midUrl.indexOf("{{")>=0)throw "МИД验证地址无效";
-  setMidState("verifying");
-  midResponse=java.startBrowserAwait(midUrl,"МИД俄罗斯人工验证",true);
-  if(midChallenge(midBody(midResponse))){setMidState("blocked");throw "МИД验证未解除反爬拦截";}
-  setMidState("verified");
-}else if(midChallenge(midHtml)&&midState()==="verified"){
-  try{midResponse=java.getStrResponse();}catch(e){}
-}
-midResponse;`;
-  s.ruleContent.content = '.text.article-content@html||.article-content@html||article .text@html||article@html||main@html\n<js>\nvar d=org.jsoup.Jsoup.parseBodyFragment(String(result||""));\nd.select("script,noscript,style,.masha_index,header,nav,aside,footer,.advertisement").remove();\nresult=""+d.body().html();\nif(typeof TH==="function")result=TH(result,java,cache,{remove_selector:[],extract_selector:[],formula_mode:"none",formula_selector:""});\nresult=String(result).replace(/src="\\//g,"src=\"https://mid.ru/").replace(/href="\\//g,"href=\"https://mid.ru/");\nresult;\n</js>';
-}
+/* MID discovery hierarchy is maintained without replacing user-reviewed content/login rules. */
+{ require("./repair_six_sources").repair(byUrl("https://mid.ru")); }
 
 /* CSSN: split each section page into the real subsection books instead of a synthetic single book. */
 {
@@ -311,5 +278,7 @@ scienceResponse;`;
   };
 }
 
+// The maintained Resources/DOI/cover rules supersede legacy selectors above.
+for (const current of sources) require('./repair_six_sources').repair(current);
 fs.writeFileSync(path, JSON.stringify(sources, null, 2) + '\n');
 console.log('updated target sources');

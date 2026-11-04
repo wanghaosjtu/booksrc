@@ -1,0 +1,59 @@
+{
+  "bookSourceGroup": "商业资讯",
+  "bookSourceName": "Inc. Magazine",
+  "bookSourceUrl": "https://www.inc.com",
+  "bookSourceType": 0,
+  "enabled": true,
+  "enabledExplore": true,
+  "header": "{\"User-Agent\": \"w3m/0.5.3+git20230121\"}",
+  "exploreUrl": "Startup (创业)::https://www.inc.com/startup,{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll('article');return a.length>0?document.documentElement.outerHTML:null;})()\"}\nGrow (成长)::https://www.inc.com/grow,{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll('article');return a.length>0?document.documentElement.outerHTML:null;})()\"}\nLead (领导力)::https://www.inc.com/lead,{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll('article');return a.length>0?document.documentElement.outerHTML:null;})()\"}\nInnovate (创新)::https://www.inc.com/innovate,{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll('article');return a.length>0?document.documentElement.outerHTML:null;})()\"}\nTechnology (科技)::https://www.inc.com/technology,{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll('article');return a.length>0?document.documentElement.outerHTML:null;})()\"}\nMoney (财务)::https://www.inc.com/money,{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll('article');return a.length>0?document.documentElement.outerHTML:null;})()\"}\n",
+  "ruleSearch": {
+    "bookList": "@js:[1]",
+    "bookUrl": "@js:baseUrl",
+    "name": "@js:'搜索: ' + (java.get('INC_SEARCH_KEY') || '')",
+    "author": "@js:'Inc. Magazine'",
+    "intro": "@js:''",
+    "coverUrl": "@js:'https://www.inc.com/favicon.ico'"
+  },
+  "searchUrl": "@js:\njava.put('INC_SEARCH_KEY', key || '');\n'https://www.inc.com/search?q=' + java.encodeURI(key || '') + ',{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll(\\'article\\');return a.length>0?document.documentElement.outerHTML:null;})()\"}';\n",
+  "ruleExplore": {
+    "bookList": "@js:\nvar SECTIONS = ['/startup','/grow','/lead','/innovate','/technology','/money'];\nvar curSection = '';\nfor (var i = 0; i < SECTIONS.length; i++) {\n  if (baseUrl.indexOf(SECTIONS[i]) >= 0) { curSection = SECTIONS[i]; break; }\n}\nif (!curSection) [];\nelse {\n  var links = [];\n  var re = /<a[^>]+href=\"((?:https:\\/\\/www\\.inc\\.com)?\\/([a-z][a-z0-9-]*))\"[^>]*>([^<]{2,40})<\\/a>/g;\n  var m;\n  var inSection = false;\n  while ((m = re.exec(result)) !== null) {\n    var href = m[1];\n    var path = '/' + m[2];\n    var text = m[3].trim();\n    if (!href.startsWith('http')) href = 'https://www.inc.com' + href;\n    if (path === curSection) { inSection = true; continue; }\n    if (inSection) {\n      if (SECTIONS.indexOf(path) >= 0) break;\n      if (path.length > 1 && text.length > 1 && path.split('/').length === 2) {\n        links.push([text, href]);\n      }\n    }\n  }\n  links;\n}",
+    "bookUrl": "@js:result[1] + ',{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelectorAll(\\'article\\');return a.length>0?document.documentElement.outerHTML:null;})()\"}'",
+    "name": "@js:result[0]",
+    "author": "@js:'Inc. Magazine'",
+    "kind": "@js:''",
+    "intro": "@js:''",
+    "coverUrl": "@js:'https://www.inc.com/favicon.ico'",
+    "wordCount": "@js:''",
+    "lastChapter": ""
+  },
+  "ruleBookInfo": {
+    "name": "@js:book.name",
+    "author": "@js:'Inc. Magazine'",
+    "kind": "@js:''",
+    "intro": "@js:book.name",
+    "coverUrl": "@css:article img@src\n<js>\nvar src = String(result || '');\nvar nl = src.indexOf('\\n');\nif (nl >= 0) src = src.substring(0, nl);\nsrc = src.trim();\nif (src && !src.startsWith('http')) src = 'https://www.inc.com' + src;\nsrc;\n</js>",
+    "tocUrl": "@js:book.bookUrl",
+    "wordCount": "@js:''"
+  },
+  "ruleToc": {
+    "chapterList": "@css:article",
+    "chapterName": "@css:h2@text\n<js>\nif (!result || !result.trim()) result = '';\nresult = result.trim();\nif (result) result = '-' + result;\nresult;\n</js>",
+    "chapterUrl": "@css:a@href\n<js>\nvar url = String(result || '');\nvar nl = url.indexOf('\\n');\nif (nl >= 0) url = url.substring(0, nl);\nurl = url.trim();\nif (url && !url.startsWith('http')) url = 'https://www.inc.com' + url;\nif (url) url = url + ',{\"webView\":true,\"webJs\":\"(function(){var a=document.querySelector(\\'.article-container\\');return a?document.documentElement.outerHTML:null;})()\"}';\nurl;\n</js>",
+    "nextTocUrl": "",
+    "lastChapter": "",
+    "author": "",
+    "kind": "",
+    "wordCount": ""
+  },
+  "ruleContent": {
+    "content": "@css:div.article-container@html\n<js>\nif (!result || !result.trim()) result = '';\nresult = result.replace(/<div[^>]+ad-container[^>]*>[\\s\\S]*?<\\/div>/g, '');\nresult = result.replace(/src=\"\\//g, 'src=\"https://www.inc.com/');\nresult = result.replace(/href=\"\\//g, 'href=\"https://www.inc.com/');\nresult;\n</js>"
+  },
+  "jsLib": "",
+  "concurrentRate": "1",
+  "respondTime": 180000,
+  "loginUrl": "https://www.inc.com",
+  "customOrder": 0,
+  "lastUpdateTime": 0,
+  "weight": 0
+}

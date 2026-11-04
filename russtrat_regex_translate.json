@@ -1,0 +1,61 @@
+{
+  "bookSourceGroup": "俄罗斯智库",
+  "bookSourceName": "РУССТРАТ (russtrat.ru) - 正则翻译版",
+  "bookSourceUrl": "https://russtrat.ru",
+  "bookSourceType": 0,
+  "enabled": true,
+  "enabledExplore": true,
+  "exploreUrl": "Аналитика::https://russtrat.ru/analytics\nНовости::https://russtrat.ru/news\nМероприятия::https://russtrat.ru/events",
+  "searchUrl": "@js:\njava.put('SEARCH_KEY', key || '');\n'https://russtrat.ru/node_search?sort_by=search_api_relevance&sort_order=DESC&search_api_views_fulltext=' + java.encodeURI(key || '') + '&page=' + ((page || 1) - 1);",
+  "ruleSearch": {
+    "bookList": "@js:[1]",
+    "bookUrl": "@js:baseUrl",
+    "name": "@js:\nvar k = java.get('SEARCH_KEY') || '';\n'搜索: ' + k;",
+    "author": "@js:'РУССТРАТ'",
+    "kind": "@js:''",
+    "intro": "@js:''",
+    "coverUrl": "@js:'https://russtrat.ru/sites/all/themes/figuration24/favicon.ico'",
+    "wordCount": "@js:''",
+    "lastChapter": ""
+  },
+  "ruleExplore": {
+    "bookList": "@js:['Аналитика', 'Новости', 'Мероприятия']",
+    "bookUrl": "@js:baseUrl",
+    "name": "@js:var TARGET_LANG='zh-Hans';function translateText(text,targetLang){if(!text||!text.trim())return text;var AUTH=java.get('AUTH');if(!AUTH){AUTH=java.ajax('https://edge.microsoft.com/translate/auth');if(typeof AUTH==='object'&&AUTH.toString)AUTH=AUTH.toString();java.put('AUTH',AUTH);}var body=JSON.stringify([text]);var headers={'Authorization':'Bearer '+AUTH,'Content-Type':'application/json'};var option=JSON.stringify({'method':'post','headers':headers,'body':body});var resp=java.ajax('https://edge.microsoft.com/translate/translatetext?to='+targetLang+','+option);if(resp&&resp.trim()){var arr=JSON.parse(resp);if(arr[0]&&arr[0].translations&&arr[0].translations[0]){return arr[0].translations[0].text;}}return text;}if(!result||!result.trim()){result=book?book.name:'未知';}if(typeof result==='string'){result=translateText(result,TARGET_LANG);}else if(Array.isArray(result)){result=translateText(result[0]||'',TARGET_LANG);}result;",
+    "author": "@js:''",
+    "kind": "@js:''",
+    "intro": "@js:''",
+    "coverUrl": "@js:'https://russtrat.ru/sites/all/themes/figuration24/favicon.ico'",
+    "wordCount": "@js:''",
+    "lastChapter": ""
+  },
+  "ruleBookInfo": {
+    "name": "@js:\nvar k = java.get('SEARCH_KEY');\nif (k) {\n  '搜索: ' + k;\n} else {\n  book.name || 'РУССТРАТ';\n}",
+    "author": "@js:'Институт РУССТРАТ'",
+    "kind": "@js:''",
+    "intro": "@js:book.name",
+    "coverUrl": "@js:'https://russtrat.ru/sites/all/themes/figuration24/favicon.ico'",
+    "tocUrl": "@js:book.bookUrl",
+    "wordCount": "@js:''"
+  },
+  "ruleToc": {
+    "chapterList": "@css:div.view-content > div",
+    "chapterName": "@css:h6@text\n<js>\nvar TARGET_LANG = 'zh-Hans';\nfunction translateText(text, targetLang){\n  if (!text || !text.trim()) return text;\n  var AUTH = java.get('AUTH');\n  if (!AUTH) {\n    AUTH = java.ajax('https://edge.microsoft.com/translate/auth');\n    if (typeof AUTH === 'object' && AUTH.toString) AUTH = AUTH.toString();\n    java.put('AUTH', AUTH);\n  }\n  var body = JSON.stringify([text]);\n  var headers = {'Authorization': 'Bearer ' + AUTH, 'Content-Type': 'application/json'};\n  var option = JSON.stringify({'method': 'post', 'headers': headers, 'body': body});\n  var resp = java.ajax('https://edge.microsoft.com/translate/translatetext?to=' + targetLang + ',' + option);\n  if (resp && resp.trim()) {\n    var arr = JSON.parse(resp);\n    if (arr[0] && arr[0].translations && arr[0].translations[0]) {\n      return '-' + arr[0].translations[0].text;\n    }\n  }\n  return '-' + text;\n}\nif (!result) result = '';\nif (Array.isArray(result)) {\n  result = result.map(function(t){ return translateText(t, TARGET_LANG); });\n} else if (typeof result === 'string') {\n  result = translateText(result, TARGET_LANG);\n}\nresult;\n</js>",
+    "chapterUrl": "@css:a@href\n<js>\nvar url = String(result || '');\nvar nl = url.indexOf('\\n');\nif (nl >= 0) url = url.substring(0, nl);\nurl = url.trim();\nif (url && !url.startsWith('http')) url = 'https://russtrat.ru' + url;\nurl;\n</js>",
+    "nextTocUrl": "@css:.pager-item a@href\n<js>\nvar urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n  var u = String(urls[i] || '');\n  if (u.indexOf('page=') >= 0) {\n    if (u.indexOf('http') < 0) {\n      if (u.startsWith('/')) {\n        u = 'https://russtrat.ru' + u;\n      } else {\n        u = 'https://russtrat.ru/analytics?' + u;\n      }\n    }\n    if (!seen[u]) { seen[u] = 1; list.push(u); }\n  }\n}\nlist;\n</js>",
+    "lastChapter": "",
+    "author": "",
+    "kind": "",
+    "wordCount": ""
+  },
+  "ruleContent": {
+    "content": "@css:div#printtext > div.field-text@html\n<js>\nvar TARGET_LANG = 'zh-Hans';\nvar MAX_LEN = 5000;\n\nfunction getAUTH() {\n  var auth = java.get('AUTH_CONTENT');\n  if (!auth) {\n    auth = java.ajax('https://edge.microsoft.com/translate/auth');\n    if (typeof auth === 'object' && auth.toString) auth = auth.toString();\n    java.put('AUTH_CONTENT', auth);\n  }\n  return auth;\n}\n\nfunction translate(text) {\n  if (!text || !text.trim() || text.length > MAX_LEN) return text;\n  var auth = getAUTH();\n  var body = JSON.stringify([text]);\n  var headers = {\n    'Authorization': 'Bearer ' + auth,\n    'Content-Type': 'application/json'\n  };\n  var option = JSON.stringify({'method': 'post', 'headers': headers, 'body': body});\n  var resp = java.ajax('https://edge.microsoft.com/translate/translatetext?to=' + TARGET_LANG + ',' + option);\n  if (resp && resp.trim()) {\n    try {\n      var arr = JSON.parse(resp);\n      if (arr[0] && arr[0].translations && arr[0].translations[0]) {\n        return arr[0].translations[0].text;\n      }\n    } catch(e) {}\n  }\n  return text;\n}\n\n// 修复相对路径\nresult = result.replace(/src=\"\\/sites\\//g, 'src=\"https://russtrat.ru/sites/');\nresult = result.replace(/href=\"\\/taxonomy\\//g, 'href=\"https://russtrat.ru/taxonomy/');\nresult = result.replace(/href=\"\\/analytics\\//g, 'href=\"https://russtrat.ru/analytics/');\nresult = result.replace(/href=\"\\/news\\//g, 'href=\"https://russtrat.ru/news/');\n\n// 用正则提取文本片段并翻译\nvar BLOCKquote_RE = /<blockquote\\b[^>]*>([\\s\\S]*?)<\\/blockquote>/g;\nvar P_RE = /<p\\b[^>]*>([\\s\\S]*?)<\\/p>/g;\n\nfunction translateTag(tagName, html) {\n  var re = new RegExp('<' + tagName + '\\\\b[^>]*>([\\\\s\\\\S]*?)<\\\\/' + tagName + '>', 'g');\n  return html.replace(re, function(match, inner) {\n    // 跳过已翻译的中文内容\n    var hasChinese = /[\\u4e00-\\u9fff]/.test(inner);\n    if (hasChinese) return match;\n    // 提取纯文本并翻译\n    var text = inner.replace(/<[^>]+>/g, '').trim();\n    if (!text) return match;\n    var translated = translate(text);\n    if (translated && translated !== text) {\n      return '<' + tagName + '>' + translated + '</' + tagName + '>';\n    }\n    return match;\n  });\n}\n\n// 翻译 blockquote 和 p\nresult = translateTag('blockquote', result);\nresult = translateTag('p', result);\n\n// 翻译其他标签\n['h1','h2','h3','h4','h5','h6','li','td','th'].forEach(function(tag) {\n  result = translateTag(tag, result);\n});\n\nresult;\n</js>"
+  },
+  "jsLib": "",
+  "concurrentRate": "1",
+  "respondTime": 180000,
+  "loginUrl": "",
+  "customOrder": 0,
+  "lastUpdateTime": 0,
+  "weight": 0
+}
