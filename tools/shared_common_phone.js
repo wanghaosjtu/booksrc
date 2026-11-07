@@ -8,6 +8,16 @@ const {createClient, changedPaths, summarizeDebug} = require('./usehtml_http_ws_
 const ROOT = path.resolve(__dirname, '..');
 const IEEE = 'https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=';
 const IDS = [IEEE, 'https://www.state.gov', 'https://carnegieendowment.org/'];
+function testHost() {
+  const host=process.env.LEGADO_PHONE||'localhost';
+  assert(['localhost','127.0.0.1','10.92.24.102'].includes(host),'explicitly authorized test phone required');
+  return host;
+}
+function sameHost(a,b) {return (a==='127.0.0.1'?'localhost':a)===(b==='127.0.0.1'?'localhost':b);}
+function backupHost(dir,host) {
+  const summary=JSON.parse(fs.readFileSync(path.join(dir,'snapshot-summary.json'),'utf8'));
+  assert(sameHost(summary.host,host),'backup belongs to another phone host; do not cross-deploy');
+}
 
 function privateDirectory(dir) {
   const parent = path.join(ROOT, 'booksource/.usehtml-validation-phone');
@@ -36,7 +46,7 @@ function normalized(value) {
   return value;
 }
 function client(host, evidenceDir) {
-  assert(host === 'localhost' || host === '127.0.0.1', 'writes and debug are limited to localhost');
+  assert(['localhost','127.0.0.1','10.92.24.102'].includes(host),'explicitly authorized phone required');
   return createClient(host, {tokenFile: process.env.LEGADO_WEB_TOKEN_FILE,closeConnection:true,
     onHttpError:evidenceDir ? record => privateWrite(evidenceDir,'http-error-'+Date.now()+'-'+crypto.randomBytes(4).toString('hex')+'.json',record) : undefined,
     onMessage:value=>{for(const line of value.split('\n'))if(/\] (?:IEEE page\/full-text merge:|IEEE signed media URLs:|Common runtime \d+ loaded|IEEE HTML标记片段数:)/.test(line))console.log(line.replace(/https?:\/\/\S+/g,'[URL]').slice(0,200));},
@@ -103,7 +113,7 @@ function targets(dir) {
 }
 async function snapshot(dir) {
   dir = privateDirectory(dir);
-  const c = client('localhost');
+  const host=testHost(),c = client(host);
   const sources = await readAllSources(c);
   assert(sources.every(s => s.bookSourceUrl), 'source identity missing');
   privateWrite(dir, 'phone-sources-before.json', sources);
@@ -121,7 +131,7 @@ async function snapshot(dir) {
     return matches[0];
   });
   privateWrite(dir, 'phone-pilots-before.json', pilots);
-  const report = {host: 'localhost', total: sources.length, targets: selected.length,
+  const report = {host, total: sources.length, targets: selected.length,
     pilots: pilots.map(s => ({name: s.bookSourceName, id: s.bookSourceUrl, sha256: hash(s), jsLibBytes: Buffer.byteLength(s.jsLib || '')})),
     privateBackup: dir};
   privateWrite(dir, 'snapshot-summary.json', report);
@@ -129,6 +139,7 @@ async function snapshot(dir) {
 }
 async function deploy(dir, candidatesFile) {
   dir = privateDirectory(dir);
+  backupHost(dir,'localhost'); // Backup device is test-only unless authorized separately.
   const c = client('localhost', dir);
   const before = JSON.parse(fs.readFileSync(path.join(dir, 'phone-targets-before.json'), 'utf8'));
   const candidates = JSON.parse(fs.readFileSync(candidatesFile, 'utf8'));
@@ -170,6 +181,7 @@ async function deploy(dir, candidatesFile) {
 }
 async function verifyOthers(dir) {
   dir = privateDirectory(dir);
+  backupHost(dir,'localhost');
   const before = JSON.parse(fs.readFileSync(path.join(dir, 'phone-sources-before.json'), 'utf8'));
   const candidates = JSON.parse(fs.readFileSync(path.join(dir, 'phone-targets-candidate.json'), 'utf8'));
   const ids = targets(dir);
@@ -192,8 +204,9 @@ async function verifyOthers(dir) {
 }
 async function debug(dir, id, key, timeout) {
   dir = privateDirectory(dir);
+  const host=testHost();backupHost(dir,host);
   assert(targets(dir).includes(id), 'debug source must be a canonical target');
-  const result = await client('localhost').debug(id, key, timeout || 55000);
+  const result = await client(host).debug(id, key, timeout || 55000);
   privateWrite(dir, 'debug-' + Date.now() + '.json', result);
   return {id, key: key.replace(/https?:\/\/\S+/g, '[URL]'), ...summarizeDebug(result, key)};
 }
@@ -213,4 +226,4 @@ if (require.main === module) main().catch(error => {
   if (error.cause) console.error(JSON.stringify(require('./usehtml_http_ws_client').errorDetails(error.cause)));
   process.exitCode = 1;
 });
-module.exports = {ROOT, IEEE, IDS, single, saveWithReadback, hash, privateDirectory, privateWrite, normalized, readAllSources, snapshot, deploy, verifyOthers, debug};
+module.exports = {ROOT, IEEE, IDS, single, saveWithReadback, hash, privateDirectory, privateWrite, normalized, readAllSources, snapshot, deploy, verifyOthers, debug,testHost,sameHost};

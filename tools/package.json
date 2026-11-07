@@ -6,6 +6,7 @@
     "test:common": "node --test tests/shared_common_test.js"
   },
   "dependencies": {
-    "acorn": "8.15.0"
+    "acorn": "8.15.0",
+    "astring": "1.9.0"
   }
 }

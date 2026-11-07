@@ -1,81 +1,68 @@
 #!/usr/bin/env python3
-"""Structural checks for the formal translated source set."""
+"""Structural checks for all common-v3 sources and the formal translation set."""
 import json
 import re
+import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-data = json.loads((root / "booksource/legado-book-sources-current.json").read_text(encoding="utf-8"))
-runtime = (root / "booksource/runtime/legado-translation-runtime.js").read_text(encoding="utf-8")
-assert all(token in runtime for token in ("function TT(", "function TJ(", "function TC(", "function TH("))
-assert "function _ltPrepareImages(" in runtime
-assert "function _ltMarker(" in runtime
-assert "function _ltSplitLabeled(" in runtime
-assert "function _ltFallbackValues(" in runtime
+filename = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "booksource/legado-book-sources-current.json"
+data = json.loads(filename.read_text(encoding="utf-8"))
+runtime = (root / "booksource/runtime/legado-shared-runtime.js").read_text(encoding="utf-8")
+loader = (root / "booksource/runtime/legado-common-loader.js").read_text(encoding="utf-8")
+assert 'var LEGADO_SHARED_RUNTIME="3";' in runtime
+assert all("function " + name + "(" in runtime for name in (
+    "TT", "TJ", "TC", "TH", "ltExtract", "ltPrepareImages", "ltUseHtmlBlocks",
+    "useHtmlRuleJson", "_ltPrepareImages", "_ltMarker", "_ltSplitLabeled",
+    "_ltFallbackValues", "_ltLoginUi", "_ltLogin", "_ltCheck", "_ltReadableDocument", "_ltWebClean"))
 assert "String(attr.getKey()) !== \"src\"" in runtime
-assert "https://edge.microsoft.com/translate/auth" not in runtime
-assert "function _ltAuth(" not in runtime
-assert 'Authorization:\"Bearer \"' in runtime
-assert "if (!token) return scalar ? output[0] : output;" not in runtime
-network_marker = "/* legado-common-loader v"
-loader_template = (root / "booksource/runtime/legado-common-loader.js").read_text(encoding="utf-8")
-shared_runtime = (root / "booksource/runtime/legado-shared-runtime.js").read_text(encoding="utf-8")
-assert 'var LEGADO_SHARED_RUNTIME="2";' in shared_runtime
-assert all(token in shared_runtime for token in ("function useHtmlRuleJson(", "function ltUseHtmlBlocks(",
-                                                "function ltPrepareImages(", "function ltExtract(", "function _ltResolveImage("))
-assert "svg.latex.svg?" in shared_runtime
+assert 'Authorization:"Bearer "' in runtime
+assert "svg.latex.svg?" in runtime
+assert "translate/auth" not in runtime
+assert "_ltResolveImage" not in runtime and "image_base_url" not in runtime
+assert len(loader.strip().splitlines()) == 2
+assert "eval(String(importer.importScript(" in loader
+assert not any(token in loader for token in ("catch", "__ltCommonApi", "__ltBuildCommon", "LEGADO_COMMON_VERSION"))
+
+network_marker = "/* legado-common-loader v3"
 all_network = [s for s in data if network_marker in str(s.get("jsLib") or "")]
-assert len(all_network) == len(data), "every active canonical source must use network common"
-assert len({s.get("bookSourceUrl") for s in data}) == len(data), "duplicate canonical source URL"
-assert len(data) >= 108, "do not narrow the complete source inventory"
+assert len(all_network) == len(data), "every canonical source must use common v3"
+assert len(data) >= 108, "do not narrow the complete inventory"
+assert len({s.get("bookSourceUrl") for s in data}) == len(data), "duplicate source identity"
 commits = set()
-for s in all_network:
-    js_lib = s.get("jsLib", "")
-    match = re.search(r'var LEGADO_COMMON_URL = "https://raw\.githubusercontent\.com/wanghaosjtu/booksrc/([0-9a-f]{40})/booksource/runtime/legado-shared-runtime\.js";', js_lib)
+for s in data:
+    lib = s.get("jsLib", "")
+    match = re.search(r'https://raw\.githubusercontent\.com/wanghaosjtu/booksrc/([0-9a-f]{40})/booksource/runtime/legado-shared-runtime\.js', lib)
     assert match, "immutable common URL missing: " + str(s.get("bookSourceName"))
     commits.add(match.group(1))
-    assert js_lib.endswith(loader_template.replace("__COMMON_COMMIT__", match.group(1))), s.get("bookSourceName")
-    assert js_lib.count(network_marker) == 1
-    assert "/* legado-translation-runtime v1" not in js_lib
-    assert "/runtime/sites/" not in js_lib
-    assert "j.importScript(LEGADO_COMMON_URL)" in js_lib
-    for setting in ("remove_selector", "extract_selector", "toc_mode", "formula_mode", "formula_selector"):
-        assert re.search(r'\b' + setting + r'\s*=', js_lib), (s.get("bookSourceName"), setting)
-assert len(commits) == 1, "all source loaders must pin the same complete revision"
-# Detect network sources by their loader, not by an embedded translation URL.
-sources = [s for s in data if s.get("toc_mode") in ("html", "json")
-           and s.get("bookSourceName") != "Test"
-           and ("/* legado-translation-runtime v1" in s.get("jsLib", "")
-                or network_marker in s.get("jsLib", ""))]
-network = [s for s in sources if network_marker in s.get("jsLib", "")]
-assert sources, "no formal translated sources"
-assert len({s.get("bookSourceUrl") for s in sources}) == len(sources), "duplicate formal source URL"
+    assert lib.endswith(loader.replace("__COMMON_COMMIT__", match.group(1)))
+    assert lib.count(network_marker) == 1
+    assert "/* legado-translation-runtime v1" not in lib and "/runtime/sites/" not in lib
+    assert "image_base_url" not in lib
+    for key, value in s.items():
+        if key.startswith("rule"):
+            text = json.dumps(value, ensure_ascii=False)
+            assert "translatetext" not in text and "translate/auth" not in text, s.get("bookSourceName")
+    assert "image_base_url" not in str(s.get("ruleContent", {}).get("content", ""))
+assert len(commits) == 1, "all source loaders must pin one full revision"
+
+# Metadata is retained in canonical for inventory/validation. Runtime settings
+# are explicit call options or referenced inline variables, not five dead vars.
+sources = [s for s in data if s.get("toc_mode") in ("html", "json") and s.get("bookSourceName") != "Test"]
+assert len(sources) == 54, "preserve the established formal translation set"
 for s in sources:
-    js_lib = s.get("jsLib", "")
-    if network_marker in js_lib:
-        match = re.search(r'var LEGADO_COMMON_URL = "https://raw\.githubusercontent\.com/wanghaosjtu/booksrc/([0-9a-f]{40})/booksource/runtime/legado-shared-runtime\.js";', js_lib)
-        assert match, "immutable common URL missing: " + str(s.get("bookSourceName"))
-        assert js_lib.endswith(loader_template.replace("__COMMON_COMMIT__", match.group(1)))
-        assert "/* legado-translation-runtime v1" not in js_lib
-        assert "/runtime/sites/" not in js_lib
-        assert "j.importScript(LEGADO_COMMON_URL)" in js_lib
-    else:
-        assert "/* legado-translation-runtime v1" in js_lib
-        embedded_runtime = js_lib[js_lib.index("/* legado-translation-runtime v1"): ]
-        assert embedded_runtime == runtime, s.get("bookSourceName")
-        assert js_lib.count("/* legado-translation-runtime v1") == 1
-    assert s.get("toc_mode") in ("json", "html")
     assert s.get("formula_mode") in ("none", "codecogs", "wiris")
-    assert "formula_selector" in s and "remove_selector" in s and "extract_selector" in s
+    assert all(k in s for k in ("formula_selector", "remove_selector", "extract_selector"))
 html = [s for s in sources if s.get("toc_mode") == "html"]
 json_toc = [s for s in sources if s.get("toc_mode") == "json"]
-assert html and json_toc
-assert len(html) + len(json_toc) == len(sources)
-assert sum("TH(result, java, cache" in str(s.get("ruleToc", {}).get("chapterList", "")) for s in html) >= 38
-assert all("TARGET_LANG = TARGET_LANG ||" not in str(s.get("ruleToc", {}).get("chapterList", "")) for s in html)
-assert all(str(s.get("ruleToc", {}).get("chapterList", "")).count("TH(result") <= 1 for s in html)
-assert all("TJ(" in str(s.get("ruleToc", {}).get("chapterList", "")) for s in json_toc)
-assert all("TT(" not in str(s.get("ruleToc", {}).get("chapterName", "")) for s in json_toc)
+assert html and json_toc and len(html) + len(json_toc) == len(sources)
+compact = lambda value: re.sub(r"\s+", "", str(value))
+toc = lambda s: compact(s.get("ruleToc", {}).get("chapterList", ""))
+assert sum("common(java).TH(result,java,cache" in toc(s) for s in html) >= 38
+assert all(toc(s).count(".TH(result") <= 1 for s in html)
+assert all("TARGET_LANG=TARGET_LANG||" not in toc(s) for s in html)
+assert all("common(java).TJ(" in toc(s) for s in json_toc)
+assert all(".TT(" not in str(s.get("ruleToc", {}).get("chapterName", "")) for s in json_toc)
 assert ":is(" not in json.dumps(sources, ensure_ascii=False)
 expected_selectors = {
     "Science": ("nav", "#backmatter"),
@@ -85,71 +72,64 @@ expected_selectors = {
     "Air &Space Forces Magazine": ("div.share-buttons", "main aside"),
     "Wiley": ("section.article-section__references", "mjx-container"),
 }
-for source_name, selectors in expected_selectors.items():
-    source = next(s for s in sources if s.get("bookSourceName") == source_name)
-    assert all(selector in source.get("remove_selector", []) for selector in selectors), source_name
+by_name = {str(s.get("bookSourceName")): s for s in data}
+for name, selectors in expected_selectors.items():
+    assert all(css in by_name[name].get("remove_selector", []) for css in selectors), name
 
-by_name = {str(s.get("bookSourceName")): s for s in sources}
-all_by_name = {str(s.get("bookSourceName")): s for s in data}
-state_all = all_by_name["State.gov "]
-assert "countries-areas-archive" in str(state_all.get("ruleExplore", {}).get("bookList", ""))
-journal_all = all_by_name["中国社会科学期刊"]
-journal_cover_rule = str(journal_all.get("ruleBookInfo", {}).get("coverUrl", ""))
-assert "sk_logo_sscp.png" not in journal_cover_rule
-assert "sk02-zgxp-book0.png" in journal_cover_rule and ".list_text_left .list_img" in journal_cover_rule
-cas_all = all_by_name["中国科学院"]
-assert "list.sort" in str(cas_all.get("ruleExplore", {}).get("bookList", ""))
-assert "webView" not in cas_all["ruleToc"]["chapterUrl"]
-assert "/doi/getFulltext" in cas_all["ruleContent"]["content"]
-assert "article.baseId" in cas_all["ruleContent"]["content"]
-assert len(all_by_name["МИД России (mid.ru)"]["exploreUrl"].splitlines()) == 1
-assert "TT(result,java,cache)" in str(all_by_name["МИД России (mid.ru)"].get("ruleToc", {}).get("chapterName", ""))
-assert "img[data-srcset]" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-assert "read-more" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-annual = all_by_name["Annual Review\u00a0"]
-assert "http://www.annualreviews.org" in str(annual.get("exploreUrl", ""))
-assert "http://www.annualreviews.org" in str(annual.get("searchUrl", ""))
-assert "annualPrefix" in str(annual.get("ruleToc", {}).get("chapterUrl", ""))
+state = by_name["State.gov "]
+assert "countries-areas-archive" in state["ruleExplore"]["bookList"]
+assert all(css in state["remove_selector"] for css in (".wp-block-default-hero-container", ".bc_hide"))
+assert ".TT(result,java,cache)" in compact(state["ruleToc"]["chapterName"])
+assert ".TH(result,java,cache" in compact(state["ruleContent"]["content"])
+journal = by_name["中国社会科学期刊"]
+assert "sk_logo_sscp.png" not in journal["ruleBookInfo"]["coverUrl"]
+assert all(s in journal["ruleBookInfo"]["coverUrl"] for s in ("sk02-zgxp-book0.png", ".list_text_left .list_img"))
+assert "function burl(" in journal["jsLib"] and "function datestr(" in by_name["Test"]["jsLib"]
+cas = by_name["中国科学院"]
+assert "list.sort" in cas["ruleExplore"]["bookList"]
+assert "webView" not in cas["ruleToc"]["chapterUrl"]
+assert "/doi/getFulltext" in cas["ruleContent"]["content"] and "article.baseId" in cas["ruleContent"]["content"]
+mid = by_name["МИД России (mid.ru)"]
+assert len(mid["exploreUrl"].splitlines()) == 1
+assert ".TT(result,java,cache)" in compact(mid["ruleToc"]["chapterName"])
+inc = by_name["inc.com"]["ruleContent"]["content"]
+assert "img[data-srcset]" in inc and "read-more" in inc
+assert "java.webView" in inc and "startBrowserAwait" in inc
+annual = by_name["Annual Review\u00a0"]
+assert all("http://www.annualreviews.org" in annual[k] for k in ("exploreUrl", "searchUrl"))
+assert "annualPrefix" in annual["ruleToc"]["chapterUrl"]
 assert "webView" not in annual["ruleContent"]["content"]
-assert "#html_fulltext" in annual["ruleContent"]["content"]
-assert "#itemFullTextId[data-fulltexturl]" in annual["ruleContent"]["content"]
-assert r"\/deliver\/fulltext\/" in annual["ruleContent"]["content"]
-assert "sixResponse=java.connect" in annual["loginCheckJs"]
-assert "startBrowserAwait" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-assert "java.webView" in str(all_by_name["inc.com"].get("ruleContent", {}).get("content", ""))
-assert all("java.getStrResponse" not in str(x.get("loginCheckJs", "")) for x in data)
-assert all("cfResponse=java.startBrowserAwait(cfUrl,\"Cloudflare人工验证\",true)" not in str(x.get("loginCheckJs", "")) for x in data)
-ieee_rule = all_by_name["IEEE"]
-assert str(ieee_rule.get("ruleToc", {}).get("chapterUrl", "")) == "$.htmlLink"
-assert "webView" not in str(ieee_rule.get("ruleToc", {}).get("chapterUrl", ""))
-assert "/rest/document/" in str(ieee_rule.get("ruleContent", {}).get("content", ""))
-assert "startBrowserAwait" not in str(ieee_rule.get("loginCheckJs", ""))
-assert "TH(result, java, cache" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterList", ""))
-assert "TT(result, java, cache)" in str(by_name["Carnegie Mosco"].get("ruleToc", {}).get("chapterName", ""))
+assert all(s in annual["ruleContent"]["content"] for s in ("#html_fulltext", "#itemFullTextId[data-fulltexturl]", r"\/deliver\/fulltext\/"))
+assert '"refetch":true' in compact(annual["loginCheckJs"])
+assert "verified=j.connect(" in compact(runtime)
+assert all("java.getStrResponse" not in str(s.get("loginCheckJs", "")) for s in data)
+ieee = by_name["IEEE"]
+assert ieee["ruleToc"]["chapterUrl"] == "$.htmlLink"
+assert "/rest/document/" in ieee["ruleContent"]["content"]
+assert ".TH(String(ieeeRawDoc.body().html()),java,cache" in compact(ieee["ruleContent"]["content"])
+assert ".ltUseHtmlBlocks(" in ieee["ruleContent"]["content"]
+assert "startBrowserAwait" not in ieee["loginCheckJs"]
+assert all(s in ieee["loginCheckJs"] for s in ('"manual":true', "202,403,418"))
 carnegie = by_name["Carnegie Mosco"]
-assert "http://carnegie.ru/" in str(carnegie.get("exploreUrl", ""))
-assert "https://carnegie.ru" not in str(carnegie.get("exploreUrl", ""))
-assert "https://carnegie.ru" not in str(carnegie.get("ruleToc", {}))
-assert "notranslate_selector" in str(by_name["Nature"].get("ruleContent", {}).get("content", ""))
-assert "ltExtract(doc, java, extract_selector)" in by_name["Nature"]["ruleContent"]["content"]
-assert "image_base_url:" in by_name["Nature"]["ruleContent"]["content"]
-qiushi_content = all_by_name["求是网"]["ruleContent"]["content"]
-assert qiushi_content.index("ltPrepareImages(") < qiushi_content.index("attributes().iterator()")
-assert "TH(" not in qiushi_content and "TC(" not in qiushi_content, "Qiushi must not gain translation"
-assert "function burl(" in all_by_name["中国社会科学期刊"]["jsLib"]
-assert "function datestr(" in all_by_name["Test"]["jsLib"]
-assert "image_anchor_mode" in str(by_name["ScienceDirect"].get("ruleContent", {}).get("content", ""))
-assert "image_alt_selector" in str(by_name["Wiley"].get("ruleContent", {}).get("content", ""))
-assert "https://mid.ru/" in str(by_name["МИД России (mid.ru)"].get("ruleContent", {}).get("content", ""))
-assert "https://riss.ru/upload/" in str(by_name["俄罗斯战略研究所(RISS)"].get("ruleContent", {}).get("content", ""))
-assert "ieeeBlocked" in str(by_name["IEEE"].get("loginCheckJs", ""))
-assert "TH(String(ieeeRawDoc.body().html()), java, cache" in str(by_name["IEEE"].get("ruleContent", {}).get("content", ""))
-content_abstracted = [s for s in sources if any(marker in str(s.get("ruleContent", {}).get("content", "")) for marker in ("TH(result", "TC(", "sixFinish(out"))]
-assert len(content_abstracted) >= 50
-assert all("translatetext" not in str(s.get("ruleContent", {}).get("content", "")) for s in sources)
-state = next(s for s in sources if str(s.get("bookSourceName", "")).strip() == "State.gov")
-assert ".wp-block-default-hero-container" in state.get("remove_selector", [])
-assert ".bc_hide" in state.get("remove_selector", [])
-assert "TT(result, java, cache)" in str(state.get("ruleToc", {}).get("chapterName", ""))
-assert "TH(result,java,cache" in str(state.get("ruleContent", {}).get("content", ""))
-print("validated", len(all_network), "network-common sources;", len(sources), "formal translated sources;", len(html), "HTML TOCs;", len(json_toc), "JSON TOCs;", len(content_abstracted), "abstracted content rules; one immutable common revision")
+assert "http://carnegie.ru/" in carnegie["exploreUrl"]
+assert "https://carnegie.ru" not in str(carnegie["ruleToc"])
+assert ".TH(result,java,cache" in toc(carnegie)
+assert ".TT(result,java,cache)" in compact(carnegie["ruleToc"]["chapterName"])
+readable = by_name["Carnegie endowment"]["ruleContent"]["content"]
+assert "readable: true" in readable and "function extractReadableContent" not in readable
+nature = by_name["Nature"]
+assert "notranslate_selector" in nature["ruleContent"]["content"]
+assert 'extract_selector: ["inline-formula tex-math"]' in nature["ruleContent"]["content"]
+assert nature["loginUi"] == "@js:common(java).loginUi()"
+qiushi = by_name["求是网"]["ruleContent"]["content"]
+assert "common(java).ltPrepareImages(result, java)" in qiushi
+assert not any(s in qiushi for s in (".TH(", ".TC(", "attributes().iterator()", "<usehtml>"))
+assert "image_anchor_mode" in by_name["ScienceDirect"]["ruleContent"]["content"]
+assert "image_alt_selector" in by_name["Wiley"]["ruleContent"]["content"]
+for name in ("Oxford Academy", "Oxford Academy back"):
+    text = by_name[name]["ruleToc"]["chapterList"]
+    assert text.index("accessAttributesJson") < text.index(".TH(")
+abstracted = [s for s in sources if any(t in str(s.get("ruleContent", {}).get("content", "")) for t in (".TH(", ".TC(", ".finish("))]
+assert len(abstracted) >= 50
+print("validated", len(data), "common-v3 sources;", len(sources), "formal translated sources;",
+      len(html), "HTML TOCs;", len(json_toc), "JSON TOCs;", len(abstracted), "common content rules; one immutable revision")
