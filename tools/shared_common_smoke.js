@@ -7,15 +7,16 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const {createClient, changedPaths, summarizeDebug, errorDetails} = require('./usehtml_http_ws_client');
-const {ROOT, privateDirectory, privateWrite, hash} = require('./shared_common_phone');
+const {ROOT, privateDirectory, privateWrite, hash, single, readAllSources} = require('./shared_common_phone');
 const {loader} = require('./migrate_shared_common');
 const HEALTH = 'http://127.0.0.1:1122/getJsSourceApiTokenRequired';
+const VERSION = '2';
 const guard = vm.createContext({});
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'booksource/runtime/legado-usehtml-rule-json.js'), 'utf8'), guard);
 const safeJson = value => guard.useHtmlRuleJson(value);
 
 function client() {
-  return createClient('localhost', {tokenFile: process.env.LEGADO_WEB_TOKEN_FILE,
+  return createClient('localhost', {tokenFile: process.env.LEGADO_WEB_TOKEN_FILE,closeConnection:true,
     onMessage:value=>{for(const line of value.split('\n'))if(/COMMON-(?:SMOKE|DIAG)-STAGE /.test(line))console.log(line.slice(0,180));},
     debugTransport: process.env.LEGADO_WS_TRANSPORT === 'python' ? require('./usehtml_python_ws').debug : undefined});
 }
@@ -77,14 +78,26 @@ var smokeParserCaller = {get:function(){return 'en';},ajaxAll:function(urls){
   return out;
 }};
 var smokeTexResult = TT(smokeTex,smokeParserCaller,smokeCache);
-var smokeMode=String(java.get('RENDER_MODE')||'html').toLowerCase();
-if(smokeMode==='html')smokeHtml = ltUseHtmlBlocks(String(smokeHtml),java);
+var smokeMode=String(java.get('RENDER_MODE')||'').trim().toLowerCase()||'html';
+if(smokeMode==='html')smokeHtml = ltUseHtmlBlocks(String(smokeHtml),java,baseUrl);
+var smokeUriDoc=org.jsoup.Jsoup.parseBodyFragment('<p>A<img src="//cdn.example.test/a.svg">B</p><img src="../lazy.svg" data-src="images/real.svg"><img src="/root.svg">');
+ltPrepareImages(smokeUriDoc,java,{image_base_url:'http://example.test/chapters/current/page.html,{"webView":true}'});
+var smokeUris=smokeUriDoc.select('img');
+var smokeImageUris=String(smokeUris.get(0).attr('src'))==='http://cdn.example.test/a.svg'
+  &&String(smokeUris.get(1).attr('src'))==='http://example.test/chapters/current/images/real.svg'
+  &&String(smokeUris.get(2).attr('src'))==='http://example.test/root.svg';
+var smokeExtract=ltExtract('<usehtml><h3>Common extract</h3><p>A<img src="../x.svg">B</p></usehtml>',java,['usehtml']);
+var smokeExtractDoc=org.jsoup.Jsoup.parseBodyFragment(String(smokeExtract));
+var smokeHtmlExtraction=smokeExtractDoc.select('h3,img').size()===2&&smokeExtractDoc.select('usehtml').size()===0;
+var smokeRepeat=ltUseHtmlBlocks(ltUseHtmlBlocks('<usehtml><h2>Repeat</h2><p>A<img src="../x.svg">B</p></usehtml>',java,'https://example.test/path/page.html'),java,'https://example.test/path/page.html');
+var smokeRepeatedHtml=org.jsoup.Jsoup.parseBodyFragment(String(smokeRepeat)).select('usehtml usehtml,usehtml img').size()===0;
 var smokeMetrics = {kind:'Android-pinned-common-short-smoke',initiallyLoaded:smokeLoadedInitially,
   loaded:__ltCommonApi!==null,version:__ltCommonApi&&String(__ltCommonApi.version),
   callerIsolation:smokeFirst==='A:first'&&smokeSecond==='B:second',
   siteFormulaConfig:smokeSrc.indexOf('/svg.latex.svg?')>=0&&smokeDoc.select('inline-formula').size()===0,
   parserAccepted:smokeParserAccepted,parserCalls:smokeParserCalls,exactTex:smokeExactTex&&smokeTexResult===smokeTex,
   svgAlias:/\\.svg$/.test(smokeSrc.split(',{')[0].split('?')[0]),
+  imageUris:smokeImageUris,htmlExtraction:smokeHtmlExtraction,repeatedHtml:smokeRepeatedHtml,
   mode:smokeMode,headingsWrapped:String(smokeHtml).indexOf('<usehtml><h1>')>=0,
   imagesOutsideHtml:org.jsoup.Jsoup.parseBodyFragment(String(smokeHtml)).select('usehtml img').size()===0};
 java.log('COMMON-SMOKE-METRICS '+JSON.stringify(smokeMetrics));
@@ -104,19 +117,32 @@ result;
 
 async function prepare(dir, commit, capturePath) {
   dir = privateDirectory(dir);
-  const tag = 'v1-' + crypto.randomBytes(6).toString('hex');
+  const tag = 'v2-' + crypto.randomBytes(6).toString('hex');
   const capture = JSON.parse(fs.readFileSync(capturePath, 'utf8'));
   const {source,key} = build(commit,capture,tag);
-  const c=client(),before=await c.sources();
+  const c=client(),before=await readAllSources(c);
   assert(!before.some(s=>s.bookSourceUrl===source.bookSourceUrl),'source collision');
   privateWrite(dir,'smoke-sources-before.json',before);
   privateWrite(dir,'smoke-source.json',source);
   privateWrite(dir,'smoke-state.json',{tag,id:source.bookSourceUrl,key,commit});
-  const actual=await c.save(source,['bookSourceUrl','bookSourceName','header','jsLib','ruleToc','ruleContent']);
+  await c.request('/saveBookSource',source);
+  const actual=await single(c,source.bookSourceUrl);
   for(const key of Object.keys(source))assert(!changedPaths(source[key],actual[key]).length,'source readback mismatch: '+key);
-  const after=await c.sources();
+  privateWrite(dir,'smoke-source-readback.json',actual);
+  return verifyPrepared(dir);
+}
+async function verifyPrepared(dir) {
+  dir=privateDirectory(dir);
+  const c=client(),before=JSON.parse(fs.readFileSync(path.join(dir,'smoke-sources-before.json'),'utf8'));
+  const expected=JSON.parse(fs.readFileSync(path.join(dir,'smoke-source-readback.json'),'utf8'));
+  const current=await single(c,expected.bookSourceUrl);
+  assert(!changedPaths(current,expected).length,'owned smoke source changed since save');
+  const after=await readAllSources(c);
+  assert.equal(after.length,before.length+1,'unexpected source count while preparing smoke');
   for(const s of before)assert.equal(hash(after.find(a=>a.bookSourceUrl===s.bookSourceUrl)),hash(s),'unrelated source changed');
-  return {sourceCreated:true,readback:'verified',unrelatedSources:before.length};
+  const report={sourceCreated:true,readback:'verified',unrelatedSources:before.length};
+  privateWrite(dir,'smoke-preparation-verified.json',report);
+  return report;
 }
 async function smoke(dir) {
   dir=privateDirectory(dir);
@@ -126,9 +152,10 @@ async function smoke(dir) {
   const summary=summarizeDebug(result,state.key);
   const match=result.messages.join('\n').match(/COMMON-SMOKE-METRICS (\{[^\n]+\})/);
   const metrics=match?JSON.parse(match[1]):null;
-  const passed=!summary.isError&&metrics&&metrics.loaded&&metrics.version==='1'&&metrics.callerIsolation
+  const passed=!summary.isError&&metrics&&metrics.loaded&&metrics.version===VERSION&&metrics.callerIsolation
     &&metrics.siteFormulaConfig&&metrics.parserAccepted&&metrics.parserCalls>0&&metrics.exactTex
-    &&metrics.svgAlias&&metrics.headingsWrapped&&metrics.imagesOutsideHtml;
+    &&metrics.svgAlias&&metrics.headingsWrapped&&metrics.imagesOutsideHtml
+    &&metrics.imageUris&&metrics.htmlExtraction&&metrics.repeatedHtml;
   privateWrite(dir,'smoke-summary-'+Date.now()+'.json',{...summary,metrics,passed:!!passed});
   return {...summary,metrics,passed:!!passed};
 }
@@ -136,13 +163,17 @@ async function refresh(dir,capturePath) {
   dir=privateDirectory(dir);
   const state=JSON.parse(fs.readFileSync(path.join(dir,'smoke-state.json'),'utf8'));
   const old=JSON.parse(fs.readFileSync(path.join(dir,'smoke-source.json'),'utf8'));
-  const c=client(),current=(await c.sources()).find(s=>s.bookSourceUrl===state.id);
+  const c=client(),current=await single(c,state.id);
   assert(current,'owned smoke source missing');
   for(const key of Object.keys(old))assert(!changedPaths(old[key],current[key]).length,'owned source edited externally: '+key);
   const capture=JSON.parse(fs.readFileSync(capturePath,'utf8'));
   const {source}=build(state.commit,capture,state.tag);
   privateWrite(dir,'smoke-source-before-refresh-'+Date.now()+'.json',current);
-  await c.save(source,Object.keys(source));
+  await c.request('/saveBookSource',source);
+  const actual=await single(c,source.bookSourceUrl);
+  for(const key of Object.keys(source))assert(!changedPaths(source[key],actual[key]).length,'refreshed readback mismatch: '+key);
+  privateWrite(dir,'smoke-source-readback-before-refresh-'+Date.now()+'.json',JSON.parse(fs.readFileSync(path.join(dir,'smoke-source-readback.json'),'utf8')));
+  fs.writeFileSync(path.join(dir,'smoke-source-readback.json'),JSON.stringify(actual,null,2)+'\n',{mode:0o600});
   fs.writeFileSync(path.join(dir,'smoke-source.json'),JSON.stringify(source,null,2)+'\n',{mode:0o600});
   return {refreshedOwnedSource:true,changes:changedPaths(old,source)};
 }
@@ -156,7 +187,7 @@ async function diagnostic(dir,kind='network') {
     try {
       var response=String(${kind==='import'?'java.importScript':'java.ajax'}(${safeJson(url)}+',{"timeout":10000}'));
       metrics.characters=response.length;
-      metrics.expectedMarker=response.indexOf('/* legado-shared-runtime v1:')===0;
+      metrics.expectedMarker=response.indexOf('/* legado-shared-runtime v2:')===0;
       metrics.ok=metrics.expectedMarker;
     } catch(error) { metrics.error=String(error).replace(/https?:\\/\\/\\S+/g,'[URL]').slice(0,250); }
     metrics.elapsedMs=new Date().getTime()-started;
@@ -264,17 +295,66 @@ async function textMode(dir) {
   assert(result.readable&&result.noUsehtml&&result.noHeadingTags&&result.svgAliasPreserved,'native TEXT mode failed');
   return {...result,ownedTextBookRemoved:true};
 }
+async function cleanup(dir,deploymentDirectory) {
+  dir=privateDirectory(dir);
+  const state=JSON.parse(fs.readFileSync(path.join(dir,'smoke-state.json'),'utf8')),c=client();
+  const bookFile=path.join(dir,'smoke-book.json');
+  if(fs.existsSync(bookFile)){
+    const owned=JSON.parse(fs.readFileSync(bookFile,'utf8'));
+    const actual=(await c.request('/getBookshelf')).find(b=>b.bookUrl===owned.bookUrl);
+    if(actual){
+      assert(actual.origin===state.id&&actual.name===owned.name&&actual.author===owned.author,'owned book changed; do not delete');
+      await c.request('/deleteBook',actual);
+    }
+  }
+  const expected=JSON.parse(fs.readFileSync(path.join(dir,'smoke-source-readback.json'),'utf8'));
+  const current=await single(c,state.id);
+  assert(!changedPaths(expected,current).length,'owned smoke source changed; do not delete');
+  await c.deleteSources([current]);
+  const before=JSON.parse(fs.readFileSync(path.join(dir,'smoke-sources-before.json'),'utf8'));
+  const after=await readAllSources(c);
+  assert.equal(after.length,before.length,'smoke source cleanup did not restore source count');
+  const expectedSources=new Map(before.map(s=>[s.bookSourceUrl,s]));
+  let knownDeployments=0;
+  if(deploymentDirectory){
+    const root=privateDirectory(deploymentDirectory);
+    const candidates=JSON.parse(fs.readFileSync(path.join(root,'phone-targets-candidate.json'),'utf8'));
+    for(const file of fs.readdirSync(root).filter(f=>/^deployed-[0-9a-f]+\.json$/.test(f))){
+      const record=JSON.parse(fs.readFileSync(path.join(root,file),'utf8'));
+      const candidate=candidates.find(s=>s.bookSourceUrl===record.id);
+      assert(candidate&&hash(candidate)===record.candidateSha256,'cannot reconcile unknown deployment');
+      assert(expectedSources.has(record.id),'deployed target missing from smoke baseline');
+      expectedSources.set(record.id,candidate);knownDeployments++;
+    }
+  }
+  for(const s of expectedSources.values())assert.equal(hash(after.find(a=>a.bookSourceUrl===s.bookSourceUrl)),hash(s),'source changed outside recorded deployments');
+  if(fs.existsSync(bookFile)){
+    const booksBefore=JSON.parse(fs.readFileSync(path.join(dir,'smoke-books-before.json'),'utf8'));
+    const booksAfter=await c.request('/getBookshelf');
+    for(const b of booksBefore){
+      const a=booksAfter.find(a=>a.bookUrl===b.bookUrl);
+      assert(a&&a.name===b.name&&a.origin===b.origin,'original book was removed or replaced');
+    }
+    privateWrite(dir,'smoke-original-books-preserved.json',{before:booksBefore.length,after:booksAfter.length,identitiesPreserved:true});
+  }
+  const report={ownedSmokeSourceRemoved:true,ownedHtmlBookRemoved:fs.existsSync(bookFile),
+    verifiedOriginalSources:before.length,recordedDeploymentsPreserved:knownDeployments};
+  privateWrite(dir,'smoke-cleanup.json',report);
+  return report;
+}
 async function main() {
   const [operation,dir,...args]=process.argv.slice(2);
   assert(dir,'private evidence directory required');
   let result;
   if(operation==='prepare')result=await prepare(dir,args[0],args[1]);
+  else if(operation==='verify-prepared')result=await verifyPrepared(dir);
   else if(operation==='smoke')result=await smoke(dir);
   else if(operation==='refresh')result=await refresh(dir,args[0]);
   else if(operation==='diagnostic')result=await diagnostic(dir,args[0]);
   else if(operation==='book')result=await cachedBook(dir);
   else if(operation==='image')result=await image(dir);
   else if(operation==='text')result=await textMode(dir);
+  else if(operation==='cleanup')result=await cleanup(dir,args[0]);
   else throw Error('unknown operation');
   console.log(JSON.stringify(result,null,2));
   if(result.passed===false)process.exitCode=1;

@@ -70,6 +70,21 @@ class RuntimeOnlyTests(unittest.TestCase):
             migration.sync_runtime_only(data)
         self.assertEqual(data, [{"jsLib": "user library"}])
 
+    def test_all_network_sources_are_noop_without_login_backup(self):
+        data = [{"bookSourceUrl": "https://example.test/" + str(i),
+                 "jsLib": "/* legado-common-loader v2 */\nuser_library();"} for i in range(3)]
+        self.assertEqual(migration.sync_runtime_only(data), (0, 0))
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "current.json"
+            source.write_text(json.dumps(data), encoding="utf-8")
+            before = source.read_bytes()
+            with patch.object(migration, "SOURCE", source), \
+                    patch.object(migration, "LOGIN_BACKUP", Path(temp) / "absent.json"), \
+                    patch.object(sys, "argv", ["migration"]), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                migration.main()
+            self.assertEqual(source.read_bytes(), before)
+
 
 if __name__ == "__main__":
     unittest.main()

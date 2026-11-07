@@ -23,6 +23,7 @@ booksource/BookSource_*.json
 *.html
 state.json
 tools/__pycache__/
+booksource/.usehtml-validation-phone/
 
 # Local JavaScript migration dependencies
 tools/node_modules/

@@ -62,13 +62,19 @@ function createClient(host, options = {}) {
   async function request(route, body, timeout = 45000) {
     assert(route.startsWith('/'), 'relative API route required');
     const headers = token ? {'x-legado-token': token} : {};
+    if (options.closeConnection) headers.Connection = 'close';
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     const response = await fetcher(http + route, {
       headers,
       ...(body === undefined ? {} : {method: 'POST', body: JSON.stringify(body)}),
       signal: AbortSignal.timeout(timeout)
     });
-    assert(response.ok, 'HTTP ' + response.status);
+    if (!response.ok) {
+      // Optional task-private evidence hook; do not expose server bodies in
+      // generic diagnostics (they can contain source scripts or credentials).
+      if (options.onHttpError) await options.onHttpError({route, status:response.status, body:await response.text()});
+      throw new Error('HTTP ' + response.status);
+    }
     const value = await response.json();
     if (value.isSuccess === false) {
       throw new Error(String(value.errorMsg || 'phone request failed').replace(/https?:\/\/\S+/g, '[URL]'));

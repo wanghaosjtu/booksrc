@@ -1,15 +1,17 @@
-/* legado-common-loader v1: keep site declarations inline; share only common. */
+/* legado-common-loader v2: keep site declarations inline; share only common. */
 var LEGADO_COMMON_URL = "https://raw.githubusercontent.com/wanghaosjtu/booksrc/__COMMON_COMMIT__/booksource/runtime/legado-shared-runtime.js";
-var LEGADO_COMMON_VERSION = "1";
+var LEGADO_COMMON_VERSION = "2";
 var __ltCommonApi = null;
 
 function __ltBuildCommon(text) {
     // A direct eval creates a private closure which can still see this source's
     // inline configuration. It must not capture the first caller's java/cache.
-    var TT, TJ, TC, TH, ltUseHtmlBlocks, LEGADO_SHARED_RUNTIME;
+    var TT, TJ, TC, TH, ltUseHtmlBlocks, ltPrepareImages, ltExtract, LEGADO_SHARED_RUNTIME;
     eval(String(text));
     return {TT: TT, TJ: TJ, TC: TC, TH: TH,
-        ltUseHtmlBlocks: ltUseHtmlBlocks, version: LEGADO_SHARED_RUNTIME};
+        ltUseHtmlBlocks: ltUseHtmlBlocks, ltPrepareImages: ltPrepareImages,
+        ltExtract: ltExtract,
+        version: LEGADO_SHARED_RUNTIME};
 }
 
 function __ltLoadCommon(j) {
@@ -22,7 +24,9 @@ function __ltLoadCommon(j) {
         if (String(api.version) !== LEGADO_COMMON_VERSION
             || typeof api.TT !== "function" || typeof api.TJ !== "function"
             || typeof api.TC !== "function" || typeof api.TH !== "function"
-            || typeof api.ltUseHtmlBlocks !== "function") throw new Error("Incompatible common runtime");
+            || typeof api.ltUseHtmlBlocks !== "function"
+            || typeof api.ltPrepareImages !== "function"
+            || typeof api.ltExtract !== "function") throw new Error("Incompatible common runtime");
         __ltCommonApi = api;
         try { j.log("Common runtime " + api.version + " loaded from pinned commit"); } catch (ignore) {}
         return api;
@@ -38,4 +42,6 @@ function TT(v,j,c) { return __ltLoadCommon(j).TT(v,j,c); }
 function TJ(v,j,c,k) { return __ltLoadCommon(j).TJ(v,j,c,k); }
 function TC(v,j,c,o) { return __ltLoadCommon(j).TC(v,j,c,o); }
 function TH(v,j,c,o) { return __ltLoadCommon(j).TH(v,j,c,o); }
-function ltUseHtmlBlocks(v,j) { return __ltLoadCommon(j).ltUseHtmlBlocks(v); }
+function ltUseHtmlBlocks(v,j,b,o) { return __ltLoadCommon(j).ltUseHtmlBlocks(v,b,o); }
+function ltPrepareImages(v,j,o) { return __ltLoadCommon(j).ltPrepareImages(v,j,o); }
+function ltExtract(v,j,s) { return __ltLoadCommon(j).ltExtract(v,j,s); }

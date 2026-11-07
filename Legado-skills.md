@@ -7,9 +7,9 @@ description: 为指定网站生成 Legado 阅读 App 的书源 JSON。支持俄�
 
 ## 统一翻译与 DOM 运行时
 
-正式活动书源以 `booksource/legado-book-sources-current.json` 为唯一编辑源。带 Microsoft Translate 逻辑的源默认内联 `booksource/runtime/legado-translation-runtime.js`，由 `tools/migrate_translation_sources.py` 生成；第 8 节的三个 common-only 网络试点例外。不要批量修改 `booksource/archive/`、单源快照或 legado-E 本体。
+正式活动书源以 `booksource/legado-book-sources-current.json` 为唯一编辑源。全部 108 个源统一内联轻量 `booksource/runtime/legado-common-loader.js`，首次使用公共入口时从完整 Git commit URL 加载 `booksource/runtime/legado-shared-runtime.js`。站点代码、设置和登录仍内联，空库/自定义库也接入同一加载器；不因此给小说、音频或中文源开启翻译/HTML。不要批量修改 `booksource/archive/`、单源快照或 legado-E 本体。
 
-运行时提供四个公共入口：`TT(text, java, cache)` 翻译单值/数组并缓存、分批和最多四路并发；`TJ(json, java, cache)` 递归翻译 JSON 并跳过 `href/path/url/id` 等字段；`TC(html, java, cache)` 只翻译 Jsoup 文本节点；`TH(html, java, cache, options)` 统一移除、提取、图片属性清理、公式和正文 DOM 流程。翻译或公式服务失败时必须保留原文。
+运行时提供 `TT(text, java, cache)` 翻译单值/数组并缓存、分批和最多四路并发；`TJ(json, java, cache)` 递归翻译 JSON 并跳过 `href/path/url/id` 等字段；`TC(html, java, cache)` 只翻译 Jsoup 文本节点；`TH(html, java, cache, options)` 统一移除、提取、图片属性清理、公式和正文 DOM 流程。`ltExtract(htmlOrDoc, java, selectors)` 将 `usehtml` 解包为 DOM，普通选择器（如 TeX）仍提取文字；`ltPrepareImages(htmlOrDoc, java, options)` 只处理图片，不翻译。翻译或公式服务失败时必须保留原文。
 
 每个正式翻译源声明 `remove_selector`、`extract_selector`、`toc_mode`、`formula_mode`、`formula_selector` 五个顶层配置。JSON 目录使用 `TJ` 一次批量翻译；HTML 目录使用 `TH` 先处理整页，再执行目录选择器，避免逐章调用 `TT`。IEEE/Springer 使用 `formula_mode: "codecogs"`，ScienceDirect 使用 `"wiris"`，其他源使用 `"none"`。IEEE 的 WAF、MathJax 和站点 API 等特殊逻辑必须保留在源规则中。
 
@@ -18,12 +18,11 @@ description: 为指定网站生成 Legado 阅读 App 的书源 JSON。支持俄�
 修改后运行：
 
 ```sh
-python3 tools/migrate_translation_sources.py
+node --test tools/tests/shared_common_test.js
 python3 tools/validate_translation_sources.py
-LEGADO_PHONE=10.92.27.11 node tools/test_translation_sources.js
 ```
 
-`test_translation_sources.js` 会逐个写入 55 个正式翻译源，调试目录并提取真实章节链接后再调试正文；disabled 源保持 disabled。结果分为 `PASS`、`FAIL`、`BLOCKED`，不能把站点/WAF/代理阻断算作翻译通过。
+发布、全量迁移和 localhost HTTP/WS 验证见第 8 节。历史 `migrate_translation_sources.py` 在全部网络化后是 no-op；不要运行会用历史源覆盖手机的 `test_translation_sources.js`。结构校验覆盖全部源，目录/翻译检查仍单独统计既有 54 个正式翻译源；不能把该子集或站点/WAF 阻断当作全量通过。
 
 ## 功能说明
 为指定网站生成 [Legado-E（阅读）](https://github.com/Luoyacheng/legado-E) 阅读 App 的书源 JSON 文件。
@@ -151,8 +150,8 @@ result;
 
 **正文相对路径修复**（在 `result=''+doc.body().html();` 之后）：
 ```javascript
+result=ltPrepareImages(doc, java, {image_base_url:String(baseUrl || '')});
 result=''+doc.body().html();
-result=result.replace(/src="\//g,'src="https://example.com/').replace(/href="\//g,'href="https://example.com/');
 result;
 ```
 
@@ -191,7 +190,7 @@ if (arr[0] && arr[0].translations && arr[0].translations[0]) {
 禁止凭猜测写 CSS 选择器。必须先 `curl` 抓取页面 HTML，确认选择器准确后再写入书源。
 
 #### 规则四：相对路径必须修复
-如果正文中的图片/链接使用相对路径（如 `/sites/...`），必须替换为绝对路径（如 `https://example.com/sites/...`）。
+正文图片必须按真实章节/响应 URL 解析 `//host/path`、`/sites/...`、相对路径和 `../`。先用 `ltPrepareImages` 选择 data-src/srcset/picture/anchor 的真实地址，再删除属性；不要用字符串拼接域名，也不要将 URL 选项后缀 `,{"js":...}` 或签名查询参数一起交给 URI 序列化器。链接也须按页面 URL 单独解析。
 
 ### 5. 调试与验证
 
@@ -448,7 +447,7 @@ Edge 启动参数（已在 PC 上配置）：
 | 保存书源返回失败 | JSON 格式不合法 | 用 `ConvertFrom-Json` 验证 JSON 后修复 |
 | `getChapterList` 返回空 | CSS 选择器未命中，或书籍未在 App 中打开过 | curl 抓取页面 HTML，重新确认 `chapterList` 选择器；优先用 WebSocket 调试 |
 | 正文返回 HTML 标签 | `@text` 用得不对 | 正文应使用 `@css:div.content@html`（不是 `@text`）|
-| 正文图片不显示 | 相对路径未修复 | 在正文规则末尾加 `<js>` 将 `/path` 替换为 `https://域名/path` |
+| 正文图片不显示 | 相对路径或懒加载未处理 | 删除属性前调用 `ltPrepareImages(doc,java,{image_base_url:String(baseUrl)})`，TH 也传真实页面 URL |
 | 翻译不生效 | Microsoft API 不通或 auth 未缓存 | 检查 `java.put("AUTH",...)` 是否正确执行 |
 | 目录标题未倒序 | 未在章节列表前加 `-` | 在 `chapterList` 的前加 `-` |
 | `TypeError: 找不到函数 each` | Jsoup 的 `.each()` 不被 Rhino 支持 | 改用 `for` 循环：`for(var i=0;i<els.size();i++){var el=els.get(i);...}` |
@@ -477,14 +476,10 @@ Edge 启动参数（已在 PC 上配置）：
 
 ### 7.1 修改前备份，导出放到 `booksource/`
 
-修改手机书源前，先从 Web 服务导出全部书源。`getBookSources` 在不同版本中可能直接返回数组，也可能包在 `data` 字段中；保存时要规范成数组，才能直接作为书源导入文件使用。
+修改手机书源前，先从 Web 服务导出全部书源到独立私有目录；不要直接用手机导出覆盖 canonical（Android 会丢弃额外元数据，手机也可能有用户新改动）。`getBookSources` 可能直接返回数组或包在 `data` 字段中；大导出超时时，`shared_common_phone.js` 从受支持的 revision inventory 分批读取完整对象，并核对前后 sourceRevision，不能以少数单源响应冒充完整备份。
 
 ```bash
-mkdir -p booksource
-curl --noproxy \* -sS http://localhost:1122/getBookSources \
-  | jq "if type == \"array\" then . else .data end" \
-  > booksource/legado-book-sources-current.json
-jq "length" booksource/legado-book-sources-current.json
+node tools/shared_common_phone.js snapshot booksource/.usehtml-validation-phone/<new-run>
 ```
 
 部署后再次读取对应书源，用 `jq -S` 与本地文件比较；不要只以 HTTP 成功响应作为部署成功的依据。
@@ -530,20 +525,20 @@ jq "length" booksource/legado-book-sources-current.json
 
 不要只验证一个可访问页面。至少覆盖：本站长文、列表中真实站外文章，以及一个可触发 Next.js/RSC 回退的页面。WebSocket 调试输出必须确认“正文页解析完成”，并抽查正文首段、尾段和图片；同时确认没有导航、推荐文章或脚本数据混入正文。
 
-## 8. Common-only 网络公共库试点
+## 8. 全量 Common-only 网络公共库
 
 ### 8.1 发布范围与固定版本
 
 只共享 `booksource/runtime/legado-shared-runtime.js`，站点设置、登录、WAF、IEEE REST/元数据/签名图片规则继续内联。不要新增远端 `sites/ieee.js`，不要把手机书源、Cookie、登录信息或调试备份发布到 GitHub。
 
-公共库发布在 `common-runtime` 分支，首个版本固定到完整 commit：
+公共库发布在 `common-runtime` 分支。当前 v2 的完整 commit：
 
 ```text
-70fac1ccb404e67fcfd426066a412620b2ee22cf
-https://raw.githubusercontent.com/wanghaosjtu/booksrc/70fac1ccb404e67fcfd426066a412620b2ee22cf/booksource/runtime/legado-shared-runtime.js
+09ab5cf52b7d089b618583af9ca98c16e4676116
+https://raw.githubusercontent.com/wanghaosjtu/booksrc/09ab5cf52b7d089b618583af9ca98c16e4676116/booksource/runtime/legado-shared-runtime.js
 ```
 
-只迁移以下三个既有身份，其他源保持原样；不要按源名称猜测身份：
+全量迁移 canonical 的每个唯一身份，包括 disabled、空 jsLib、自定义库及音频源。中国社会科学期刊的 `burl`、Test 的 `datestr` 必须保留。以下三个历史试点的身份仍不能按名称改写：
 
 | 试点 | bookSourceUrl |
 |------|---------------|
@@ -553,7 +548,7 @@ https://raw.githubusercontent.com/wanghaosjtu/booksrc/70fac1ccb404e67fcfd426066a
 
 ### 8.2 加载器、配置与缓存
 
-`booksource/runtime/legado-common-loader.js` 内联在各试点 `jsLib`，保留 `TT/TJ/TC/TH` 签名。第一次调用才通过当前调用者的 `java.importScript(固定 URL)` 下载文本，在独立 factory 中 `eval`，检查公共库版本和完整入口后再缓存 API。
+`booksource/runtime/legado-common-loader.js` 内联在全部源的 `jsLib`，保留 `TT/TJ/TC/TH` 签名，转发 `ltExtract/ltPrepareImages/ltUseHtmlBlocks`。第一次调用才通过当前调用者的 `java.importScript(固定 URL)` 下载文本，在独立 factory 中 `eval`，检查公共库版本和完整入口后再缓存 API。没有调用公共函数的空库/音频源不做多余联网。
 
 - `importScript` **返回文本，不会执行脚本**。不要只调用它而省略求值。
 - factory 能读取本源的内联设置，但不能捕获第一次调用的 `java/cache`；后续调用必须使用各自传入的参数。
@@ -564,7 +559,9 @@ https://raw.githubusercontent.com/wanghaosjtu/booksrc/70fac1ccb404e67fcfd426066a
 
 ### 8.3 IEEE HTML 与 SVG 规则
 
-IEEE 沿用手机上的分段 `<usehtml>` 规则，默认 HTML，尊重用户明确选择的 TEXT。只包装**不含图片**的 `h1–h6/blockquote`；公式图片留在原位置，不整篇包装、不强制拆行、不转成 PNG。桥接调用为 `ltUseHtmlBlocks(html, java)`。
+IEEE 沿用手机上的分段 `<usehtml>` 规则，默认 HTML，尊重用户明确选择的 TEXT。只包装**不含图片**的 `h1–h6/blockquote`；公式图片留在原位置，不整篇包装、不强制拆行、不转成 PNG。桥接调用为 `ltUseHtmlBlocks(html, java, pageUrl, options)`；重复调用会先解包旧 usehtml，不生成嵌套包装。
+
+Nature 的正文 `TH` 传真实 `baseUrl`，手工提取改用 `ltExtract`。求是只在属性清理前调用图片 helper，仍不翻译或强制 HTML。其他 TH/TC 及手工图片清理也传章节 URI；显式的站点图片锚点选项保留。
 
 包含 TeX 的请求选项用安全 JSON 编码，避免 `{{d\mathrm{snr}…}}` 被规则分析器误当 JavaScript。只转义 JSON 字符串中的规则标记，解码后的正文、TeX、请求头和 body 必须逐字一致；禁止替换或删除原始反斜杠。
 
@@ -580,31 +577,36 @@ https://latex.codecogs.com/svg.latex.svg?ENCODED_TEX,{"js":"String(result).repla
 
 ### 8.4 定向迁移与回滚资料
 
-手机只通过用户当前指定的 localhost HTTP/WS 操作。使用独立私有目录，先备份，再生成三个候选；目录和文件分别保持 700/600，且必须被 Git 忽略：
+手机只通过用户当前指定的 localhost HTTP/WS 操作。先 check in 稳定版，再修公共库和全量 dry-run；发布提交**只改变**公共 runtime 文件（不推送工作分支/手机源），验证 raw 文件逐字节一致后，生成所有候选。使用独立私有目录，目录和文件保持 700/600，且必须被 Git 忽略：
 
 ```sh
 node tools/shared_common_phone.js snapshot booksource/.usehtml-validation-phone/<new-run>
 node tools/migrate_shared_common.js <full-commit-sha> booksource/.usehtml-validation-phone/<new-run> --write
 python3 tools/validate_translation_sources.py
-node tools/shared_common_phone.js deploy booksource/.usehtml-validation-phone/<new-run> booksource/.usehtml-validation-phone/<new-run>/phone-pilots-candidate.json
+node tools/shared_common_phone.js deploy booksource/.usehtml-validation-phone/<new-run> booksource/.usehtml-validation-phone/<new-run>/phone-priority-candidate.json
+# Nature / 求是 / IEEE 验证后，分批继续全部候选（已部署对象只核对，不重复覆盖）
+node tools/shared_common_phone.js deploy booksource/.usehtml-validation-phone/<new-run> booksource/.usehtml-validation-phone/<new-run>/phone-targets-candidate.json
 node tools/shared_common_phone.js verify booksource/.usehtml-validation-phone/<new-run>
 ```
 
-迁移只做三个试点的 AST 定向拆分，保留公共库标记后面的站点代码，拒绝无法安全拆分的混合声明。部署前比较最新手机源与备份，发现用户改动就停止覆盖；保存后完整读回核对，其他源也要逐个保持一致。不要重复执行同一目录的 `--write`，也不要运行会覆盖所有手机源的旧全量测试。
+迁移按 AST 拆分所有内联/网络 common，保留标记前后站点代码，拒绝混合声明/未知猴补丁。无 common 的可选 TH 分支只接入图片处理，不意外开启翻译。候选基于最新手机对象，保留手机登录、名称、非正文规则、启用状态等用户差异；本地 canonical 的无关字段也不改。部署前比较当前源与完整备份，发现用户改动就停止；保存后完整读回并为每源写私有 journal。只读连接重置可有限重试，写入错误须先读回，不盲目重发。不要重复同一目录的 `--write`。
 
-回滚时只恢复该次 `phone-pilots-before.json` 中的三个对象，先确认当前源仍等于本次已部署版本。不要导入全部备份覆盖其他源，不清除原书缓存。
+`phone-priority-candidate.json` 是从全量候选精确筛选上述三个身份的私有文件；不是完整验收。`verify` 必须核对全部 canonical 候选和未迁移的实验源。回滚只恢复 `phone-targets-before.json` 中实际部署的对象，先确认当前源仍等于本次部署版本；不要导入整个备份覆盖其他源，不清除原书缓存。
 
 ### 8.5 回归与手机验收
 
 本地回归：
 
 ```sh
-node --test tools/tests/shared_common_test.js
+node --test tools/tests/*_test.js
+python3 tools/test_runtime_only_sync.py
 python3 tools/validate_translation_sources.py
 ```
 
 真实引擎测试还需配置 `USEHTML_JAVA_HOME`、`USEHTML_ENGINE_JAR`、`USEHTML_JSOUP_JAR`、`USEHTML_KOTLIN_LIB` 和 `USEHTML_IEEE_CAPTURE`；未配置或测试 skipped 不代表已通过 Android 验收。
 
-先用 `tools/shared_common_smoke.js` 建立独立短样本，覆盖真实 `importScript`、factory 调用者隔离、原始公式的请求编码、图片 `.svg` 后缀，再部署三个正式试点。随后检查实际目录/正文、IEEE `document/9737357` 的 HTML/TEXT、缓存重读、图片渲染及完整 EPUB 的图片路径/OPF 类型；WAF、认证、服务超时必须记录为 BLOCKED，不能算 PASS。调试资料不随公共库发布。
+先用 `tools/shared_common_smoke.js` 建立新版本的独立短样本，覆盖真实 `importScript`、调用者隔离、原始公式编码、图片 `.svg`、图片 URI、HTML 解包和重复处理。优先部署 Nature、求是、IEEE，验证实际规则后继续全部源并全量读回。检查 IEEE `document/9737357` 的 HTML/TEXT、独立缓存重读、图片渲染；WAF、认证、服务超时单独记录为 BLOCKED，不算网站全流程通过。测试结束用 `cleanup` 只删除本次拥有且未被用户修改的短源/测试书，保留旧验证源、原书和原缓存。
+
+严格区分：108 源共享库/字段保全验收、54 源翻译结构校验、实机样本和外部站点可用性。不能以三个试点通过冒充全量迁移，也不能宣称原本失效/禁用的站点已修好。当前全量记录见 `booksource/shared-common-all-sources-report.md`；旧 v1 的完整手机 EPUB/calibre 证据仍见 `booksource/common-runtime-validation-report.md`。
 
 `tools/shared_common_epub.js cache` 可用受支持的 `java.getFile/readFile` 读回**本次独立书籍**的 SVG 缓存。当前 HTTP 没有 EPUB 导出端点，RhinoClassShutter 明确屏蔽 `android.content.Intent`、`android.app.ActivityThread`、App Context 和数据库入口；不得通过反射绕过限制来启动 `ExportBookService`。需要本人在 App 导出独立验证书并提供完整 EPUB，再验收 ZIP/图片/OPF 和 calibre。旧附件缺 ZIP 尾目录或本地模拟 EPUB 都不能代替手机导出的完整文件。

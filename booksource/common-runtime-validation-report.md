@@ -1,5 +1,7 @@
 # Common-only 公共库发布与手机验收
 
+> 此报告记录 v1 三个试点及完整手机 EPUB/calibre 验收。后续 v2 全量网络 common 迁移的当前记录见 [shared-common-all-sources-report.md](shared-common-all-sources-report.md)。
+
 2026-11-07。只共享公共库，站点代码和手机私有资料不发布。
 
 ## 已发布与部署

@@ -112,6 +112,28 @@ test('HTTP error diagnostics retain timeout cause without URLs or secrets', () =
   assert.equal(details.cause.code, 'UND_ERR_HEADERS_TIMEOUT');
   assert(!JSON.stringify(details).includes('synthetic') && !JSON.stringify(details).includes('example.test'));
 });
+test('task-scoped HTTP connection-close option does not alter auth or request body', async () => {
+  const calls=[];
+  const c=createClient('localhost',{token:'synthetic',closeConnection:true,fetch:async(url,options)=>{
+    calls.push(options);return new Response(JSON.stringify({isSuccess:true,data:''}));
+  }});
+  await c.request('/saveBookSource',{bookSourceUrl:'fixture'});
+  assert.equal(calls[0].headers.Connection,'close');
+  assert.equal(calls[0].headers['x-legado-token'],'synthetic');
+  assert.deepEqual(JSON.parse(calls[0].body),{bookSourceUrl:'fixture'});
+});
+
+test('non-200 server bodies go only to an explicit private evidence hook', async () => {
+  const records=[];
+  const c=createClient('localhost',{fetch:async()=>new Response('synthetic-private-body',{status:500}),
+    onHttpError:record=>records.push(record)});
+  await assert.rejects(c.request('/saveBookSource',{bookSourceUrl:'fixture'}),error=>{
+    assert.equal(error.message,'HTTP 500');
+    assert(!error.message.includes('private'));
+    return true;
+  });
+  assert.deepEqual(records,[{route:'/saveBookSource',status:500,body:'synthetic-private-body'}]);
+});
 
 test('independent WS provider uses verified policy and the same task-scoped request', async () => {
   const calls = [];

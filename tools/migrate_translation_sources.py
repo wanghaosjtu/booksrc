@@ -18,7 +18,7 @@ TRANSLATION_FIELDS = {
 }
 RUNTIME = (ROOT / "booksource/runtime/legado-translation-runtime.js").read_text(encoding="utf-8")
 MARKER = "/* legado-translation-runtime v1"
-NETWORK_MARKER = "/* legado-common-loader v1"
+NETWORK_MARKER = "/* legado-common-loader v"
 
 
 def network_common(source):
@@ -769,6 +769,8 @@ def sync_runtime_only(data):
         if updated != library:
             source["jsLib"] = updated
             changed += 1
+    if not selected and data and all(network_common(s) for s in data):
+        return 0, 0
     if not selected:
         raise SystemExit("no marked formal runtimes found")
     return selected, changed
@@ -786,6 +788,10 @@ def main():
             SOURCE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print("runtime-only:", changed, "updated of", selected, "marked formal sources")
         return
+    if data and all(network_common(s) for s in data):
+        print("all", len(data), "sources already use pinned network common; legacy migration is a no-op")
+        return
+    expected_legacy = sum(not network_common(s) and translated(s) and mode(s) is not None for s in data)
     backup_data = json.loads(LOGIN_BACKUP.read_text(encoding="utf-8"))
     backup_by_id = {source_identity(source): source for source in backup_data}
     # E-2 is the authoritative login/header baseline selected for this task.
@@ -843,7 +849,6 @@ def main():
         # Site-specific cleanup added above must also reach every inline TH call.
         apply_remove_selectors(source, legacy_source)
         changed += 1
-    expected_legacy = 55 - sum(network_common(source) for source in data)
     if selected != expected_legacy:
         raise SystemExit("expected %d legacy translated sources, found %d" % (expected_legacy, selected))
     restored = restore_login_fields(data)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Structural checks for the formal translated source set."""
 import json
+import re
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -16,28 +17,42 @@ assert "https://edge.microsoft.com/translate/auth" not in runtime
 assert "function _ltAuth(" not in runtime
 assert 'Authorization:\"Bearer \"' in runtime
 assert "if (!token) return scalar ? output[0] : output;" not in runtime
-network_marker = "/* legado-common-loader v1"
+network_marker = "/* legado-common-loader v"
 loader_template = (root / "booksource/runtime/legado-common-loader.js").read_text(encoding="utf-8")
 shared_runtime = (root / "booksource/runtime/legado-shared-runtime.js").read_text(encoding="utf-8")
-assert 'var LEGADO_SHARED_RUNTIME="1";' in shared_runtime
-assert "function useHtmlRuleJson(" in shared_runtime and "function ltUseHtmlBlocks(" in shared_runtime
+assert 'var LEGADO_SHARED_RUNTIME="2";' in shared_runtime
+assert all(token in shared_runtime for token in ("function useHtmlRuleJson(", "function ltUseHtmlBlocks(",
+                                                "function ltPrepareImages(", "function ltExtract(", "function _ltResolveImage("))
 assert "svg.latex.svg?" in shared_runtime
+all_network = [s for s in data if network_marker in str(s.get("jsLib") or "")]
+assert len(all_network) == len(data), "every active canonical source must use network common"
+assert len({s.get("bookSourceUrl") for s in data}) == len(data), "duplicate canonical source URL"
+assert len(data) >= 108, "do not narrow the complete source inventory"
+commits = set()
+for s in all_network:
+    js_lib = s.get("jsLib", "")
+    match = re.search(r'var LEGADO_COMMON_URL = "https://raw\.githubusercontent\.com/wanghaosjtu/booksrc/([0-9a-f]{40})/booksource/runtime/legado-shared-runtime\.js";', js_lib)
+    assert match, "immutable common URL missing: " + str(s.get("bookSourceName"))
+    commits.add(match.group(1))
+    assert js_lib.endswith(loader_template.replace("__COMMON_COMMIT__", match.group(1))), s.get("bookSourceName")
+    assert js_lib.count(network_marker) == 1
+    assert "/* legado-translation-runtime v1" not in js_lib
+    assert "/runtime/sites/" not in js_lib
+    assert "j.importScript(LEGADO_COMMON_URL)" in js_lib
+    for setting in ("remove_selector", "extract_selector", "toc_mode", "formula_mode", "formula_selector"):
+        assert re.search(r'\b' + setting + r'\s*=', js_lib), (s.get("bookSourceName"), setting)
+assert len(commits) == 1, "all source loaders must pin the same complete revision"
 # Detect network sources by their loader, not by an embedded translation URL.
 sources = [s for s in data if s.get("toc_mode") in ("html", "json")
            and s.get("bookSourceName") != "Test"
            and ("/* legado-translation-runtime v1" in s.get("jsLib", "")
                 or network_marker in s.get("jsLib", ""))]
 network = [s for s in sources if network_marker in s.get("jsLib", "")]
-if network:
-    assert {s.get("bookSourceUrl") for s in network} == {
-        "https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=",
-        "https://www.state.gov", "https://carnegieendowment.org/"}, "only the three common pilots may migrate"
 assert sources, "no formal translated sources"
 assert len({s.get("bookSourceUrl") for s in sources}) == len(sources), "duplicate formal source URL"
 for s in sources:
     js_lib = s.get("jsLib", "")
     if network_marker in js_lib:
-        import re
         match = re.search(r'var LEGADO_COMMON_URL = "https://raw\.githubusercontent\.com/wanghaosjtu/booksrc/([0-9a-f]{40})/booksource/runtime/legado-shared-runtime\.js";', js_lib)
         assert match, "immutable common URL missing: " + str(s.get("bookSourceName"))
         assert js_lib.endswith(loader_template.replace("__COMMON_COMMIT__", match.group(1)))
@@ -116,6 +131,13 @@ assert "http://carnegie.ru/" in str(carnegie.get("exploreUrl", ""))
 assert "https://carnegie.ru" not in str(carnegie.get("exploreUrl", ""))
 assert "https://carnegie.ru" not in str(carnegie.get("ruleToc", {}))
 assert "notranslate_selector" in str(by_name["Nature"].get("ruleContent", {}).get("content", ""))
+assert "ltExtract(doc, java, extract_selector)" in by_name["Nature"]["ruleContent"]["content"]
+assert "image_base_url:" in by_name["Nature"]["ruleContent"]["content"]
+qiushi_content = all_by_name["求是网"]["ruleContent"]["content"]
+assert qiushi_content.index("ltPrepareImages(") < qiushi_content.index("attributes().iterator()")
+assert "TH(" not in qiushi_content and "TC(" not in qiushi_content, "Qiushi must not gain translation"
+assert "function burl(" in all_by_name["中国社会科学期刊"]["jsLib"]
+assert "function datestr(" in all_by_name["Test"]["jsLib"]
 assert "image_anchor_mode" in str(by_name["ScienceDirect"].get("ruleContent", {}).get("content", ""))
 assert "image_alt_selector" in str(by_name["Wiley"].get("ruleContent", {}).get("content", ""))
 assert "https://mid.ru/" in str(by_name["МИД России (mid.ru)"].get("ruleContent", {}).get("content", ""))
@@ -130,4 +152,4 @@ assert ".wp-block-default-hero-container" in state.get("remove_selector", [])
 assert ".bc_hide" in state.get("remove_selector", [])
 assert "TT(result, java, cache)" in str(state.get("ruleToc", {}).get("chapterName", ""))
 assert "TH(result,java,cache" in str(state.get("ruleContent", {}).get("content", ""))
-print("validated", len(sources), "formal translated sources;", len(html), "HTML TOCs;", len(json_toc), "JSON TOCs;", len(content_abstracted), "abstracted content rules;", len(network), "network common pilots")
+print("validated", len(all_network), "network-common sources;", len(sources), "formal translated sources;", len(html), "HTML TOCs;", len(json_toc), "JSON TOCs;", len(content_abstracted), "abstracted content rules; one immutable common revision")
