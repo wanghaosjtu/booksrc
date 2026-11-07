@@ -39,9 +39,18 @@ function _ltNetworkError(e,j){
     if(!e.javaException||!(e.javaException instanceof Packages.java.io.IOException))throw e;
     j.log("Common service unavailable: "+String(e.javaException.getClass().getSimpleName()));
 }
+/* Invalid external JSON is a service response, not a caller/cached-data error.
+ * Convert before the catch so a broken caller's toString is never hidden. */
+function _ltServiceJson(body,j){
+    body=_ltString(body);
+    try{return JSON.parse(body);}catch(e){
+        if(!(e instanceof SyntaxError))throw e;
+        if(j)j.log("Common service returned invalid JSON");
+        return null;
+    }
+}
 function _ltTexts(response){
-    var body=_ltBody(response),data;
-    try{data=JSON.parse(body);}catch(e){if(e instanceof SyntaxError)return null;throw e;}
+    var data=_ltServiceJson(_ltBody(response));
     if(!_ltArray(data))return null;
     var out=[],i,translations;
     for(i=0;i<data.length;i++){
@@ -2307,4 +2316,4 @@ function _ltBrowserReadable(doc) {
 ({version:LEGADO_SHARED_RUNTIME,TT:TT,TJ:TJ,TC:TC,TH:TH,
   ltPrepareImages:ltPrepareImages,ltExtract:ltExtract,ltUseHtmlBlocks:ltUseHtmlBlocks,
   setTargetLang:_ltSetTargetLang,setRenderMode:_ltSetRenderMode,login:_ltLogin,loginUi:_ltLoginUi,open:_ltOpen,
-  challenge:_ltChallenge,check:_ltCheck,clean:_ltClean,finish:_ltFinish,resolveRequest:_ltResolveRequest,networkError:_ltNetworkError,wirisSvg:_ltWirisSvg,webClean:_ltWebClean});
+  challenge:_ltChallenge,check:_ltCheck,clean:_ltClean,finish:_ltFinish,resolveRequest:_ltResolveRequest,networkError:_ltNetworkError,serviceJson:_ltServiceJson,wirisSvg:_ltWirisSvg,webClean:_ltWebClean});
