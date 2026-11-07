@@ -1,5 +1,5 @@
-/* legado-shared-runtime v1: public common only; no site code or credentials. */
-var LEGADO_SHARED_RUNTIME="1";
+/* legado-shared-runtime v2: public common only; no site code or credentials. */
+var LEGADO_SHARED_RUNTIME="2";
 var LEGADO_TRANSLATION_RUNTIME="3";
 function _ltString(v){return v==null?"":String(v);}
 function _ltCacheGet(c,k){try{return c&&c.get(k);}catch(e){return null;}}
@@ -93,27 +93,89 @@ function TC(html,j,cache,options){
     var translated=TT(values,j,cache);for(i=0;i<nodes.length;i++)nodes[i].text(_ltString(translated[i]));return _ltString(doc.body().html());
 }
 function _ltRemove(doc,selectors){for(var i=0;selectors&&i<selectors.length;i++)try{doc.select(String(selectors[i])).remove();}catch(e){}}
-function _ltExtract(doc,selectors){var i,j,selected,el;for(i=0;selectors&&i<selectors.length;i++){try{selected=doc.select(String(selectors[i]));}catch(e){continue;}for(j=0;j<selected.size();j++){el=selected.get(j);el.replaceWith(new org.jsoup.nodes.TextNode(_ltString(el.text())));}}}
-function _ltSrcset(v){var parts=_ltString(v).split(","),i,c;for(i=parts.length-1;i>=0;i--){c=parts[i].trim().split(/\s+/)[0];if(c)return c;}return"";}
+function _ltExtract(doc,selectors){
+    var i,j,selected,el;
+    for(i=0;selectors&&i<selectors.length;i++){
+        try{selected=doc.select(String(selectors[i]));}catch(e){continue;}
+        for(j=0;j<selected.size();j++){
+            el=selected.get(j);
+            // usehtml is a protection wrapper, not a request to flatten its
+            // DOM. Ordinary extraction (notably tex-math) stays text-only.
+            if(_ltString(el.tagName()).toLowerCase()==="usehtml")el.unwrap();
+            else el.replaceWith(new org.jsoup.nodes.TextNode(_ltString(el.text())));
+        }
+    }
+}
+function ltExtract(html,j,selectors){
+    if(html==null)return html;
+    var nodeInput=typeof html.select==="function",doc=nodeInput?html:org.jsoup.Jsoup.parseBodyFragment(_ltString(html));
+    _ltExtract(doc,selectors||[]);
+    return nodeInput?doc:_ltString(doc.body().html());
+}
+function _ltSrcset(value){
+    var s=_ltString(value),at=0,start,url,descriptor,match,score,best="",bestScore=-1;
+    while(at<s.length){
+        while(at<s.length&&/[\s,]/.test(s.charAt(at)))at++;
+        start=at;
+        var data=s.substring(at,at+5).toLowerCase()==="data:";
+        while(at<s.length&&!/\s/.test(s.charAt(at))&&(data||s.charAt(at)!==","))at++;
+        url=s.substring(start,at).replace(/,+$/,"");
+        start=at;
+        while(at<s.length&&s.charAt(at)!==",")at++;
+        descriptor=s.substring(start,at).trim();at++;
+        match=descriptor.match(/^([0-9]+(?:\.[0-9]+)?)[wx]$/);
+        score=match?parseFloat(match[1]):0;
+        if(_ltUsable(url)&&score>=bestScore){best=url;bestScore=score;}
+    }
+    return best;
+}
 function _ltUsable(v){v=_ltString(v).trim().toLowerCase();return!!v&&v!=="#"&&v.indexOf("javascript:")!==0&&v.indexOf("about:")!==0&&v.indexOf("transparent")<0&&v.indexOf("placeholder")<0&&v.indexOf("spacer")<0;}
 function _ltAttr(el,key){var v=_ltString(el.attr(key)).trim();return key.indexOf("srcset")>=0?_ltSrcset(v):v;}
 function _ltReplaceAltImages(doc,selectors){var i,j,els,el,src,img;for(i=0;selectors&&i<selectors.length;i++){try{els=doc.select(String(selectors[i]));}catch(e){continue;}for(j=0;j<els.size();j++){el=els.get(j);src=_ltString(el.attr("data-altimg")).trim();if(!src)continue;try{img=doc.createElement("img");img.attr("src",src);el.replaceWith(img);}catch(e){}}}}
-function _ltAnchor(href,options){if(options.image_anchor_suffix)return href+_ltString(options.image_anchor_suffix);if(options.image_anchor_options)try{return href+","+JSON.stringify(options.image_anchor_options);}catch(e){}return href;}
+function _ltAnchor(href,options){if(options.image_anchor_suffix)return href+_ltString(options.image_anchor_suffix);if(options.image_anchor_options)try{return href+","+useHtmlRuleJson(options.image_anchor_options);}catch(e){}return href;}
+function _ltUrlParts(value){
+    var s=_ltString(value).trim(),at=s.search(/,\s*\{/);
+    return{url:at<0?s:s.substring(0,at),options:at<0?"":s.substring(at)};
+}
+function _ltPageUrl(value){return _ltUrlParts(value).url;}
+function _ltResolveImage(img,value,base){
+    var parts=_ltUrlParts(value),url=parts.url,absolute="";
+    // Do not round-trip absolute/signed URLs through a URI serializer. Keep
+    // query bytes, CodeCogs TeX and Legado's request-options suffix verbatim.
+    if(/^[a-z][a-z0-9+.-]*:/i.test(url))return url+parts.options;
+    if(/^\/\//.test(url)){
+        var scheme=_ltPageUrl(base).match(/^(https?):/i);
+        return(scheme?scheme[1]:"https")+":"+url+parts.options;
+    }
+    img.attr("src",url);
+    try{absolute=_ltString(img.absUrl("src"));}catch(e){}
+    return(absolute||url)+parts.options;
+}
 var _LT_LAZY=["data-src","data-original","data-original-src","data-lazy-src","data-lazy","data-echo","data-img-src","data-image-url","data-image","data-url","data-fallback-src","data-full-src","data-hi-res-src","data-large-file","data-srcset"];
 function _ltPrepareImages(doc,base,options){
     options=options||{};var imgs=doc.select("img"),i,k,pk,img,src,loading,parent,href,anchor,picture,source,sourceKeys=["data-srcset","srcset","data-src","src"],lazy,candidate,attrs,attr;
+    var page=_ltPageUrl(base);if(page)doc.setBaseUri(page);
     for(i=0;i<imgs.size();i++){
         img=imgs.get(i);src=_ltString(img.attr("src")).trim();loading=_ltString(img.attr("loading")).toLowerCase();parent=img.parent();href=parent&&String(parent.tagName()).toLowerCase()==="a"?_ltString(parent.attr("href")).trim():"";anchor=false;picture="";
         if(parent&&String(parent.tagName()).toLowerCase()==="picture"){var sources=parent.select("source");for(pk=0;pk<sources.size()&&!_ltUsable(picture);pk++){source=sources.get(pk);for(k=0;k<sourceKeys.length;k++){picture=_ltAttr(source,sourceKeys[k]);if(_ltUsable(picture))break;}}}
-        if(options.image_anchor_mode==="href"&&loading==="lazy"&&href){src=_ltAnchor(href,options);anchor=true;}
+        if(options.image_anchor_mode==="href"&&loading==="lazy"&&_ltUsable(href)){src=_ltAnchor(href,options);anchor=true;}
         if(!anchor&&_ltUsable(picture))src=picture;
-        if(loading==="lazy"&&!anchor){lazy="";for(k=0;k<_LT_LAZY.length;k++){candidate=_ltAttr(img,_LT_LAZY[k]);if(_ltUsable(candidate)){lazy=candidate;break;}}if(lazy)src=lazy;}
+        if(!anchor&&!_ltUsable(picture)){lazy="";for(k=0;k<_LT_LAZY.length;k++){candidate=_ltAttr(img,_LT_LAZY[k]);if(_ltUsable(candidate)){lazy=candidate;break;}}if(!lazy)lazy=_ltAttr(img,"srcset");if(_ltUsable(lazy))src=lazy;}
         if(!_ltUsable(src)){for(k=0;k<_LT_LAZY.length&&!_ltUsable(src);k++)src=_ltAttr(img,_LT_LAZY[k]);if(!_ltUsable(src))src=_ltAttr(img,"srcset");}
         if(!_ltUsable(src)&&href)src=options.image_anchor_mode==="href"?_ltAnchor(href,options):href;
-        if(src&&/^\/\//.test(src))src="https:"+src;if(src&&base&&/^\//.test(src))src=_ltString(base).replace(/\/$/,"")+src;if(src)img.attr("src",src);
+        if(src)img.attr("src",_ltResolveImage(img,src,page));
         if(!src){img.remove();continue;}
         attrs=img.attributes().iterator();while(attrs.hasNext()){attr=attrs.next();if(String(attr.getKey()) !== "src"&&String(attr.getKey()) !== "alt")attrs.remove();}
     }
+}
+/* Image-only processing must not enable translation or HTML on another source. */
+function ltPrepareImages(html,j,options){
+    if(html==null||!_ltString(html).trim())return html;
+    options=options||{};
+    var base=_ltPageUrl(options.image_base_url||""),nodeInput=typeof html.select==="function"&&typeof html.setBaseUri==="function";
+    var doc=nodeInput?html:org.jsoup.Jsoup.parse(_ltString(html),base);
+    _ltReplaceAltImages(doc,options.image_alt_selector||[]);_ltPrepareImages(doc,base,options);
+    return nodeInput?doc:_ltString(doc.body().html());
 }
 function _ltCodecogs(doc,selector){var formulas,el,tex,img,i;try{formulas=doc.select(selector);}catch(e){return;}for(i=0;i<formulas.size();i++){el=formulas.get(i);tex=_ltCodecogsTex(el);if(!tex)continue;try{img=doc.createElement("img");img.attr("src",_ltFormulaSvgUrl(tex));img.attr("alt",tex);el.replaceWith(img);}catch(e){}}}
 function _ltFormulaEscaped(tex,index){var n=0;while(index>0&&tex.charAt(--index)==="\\")n++;return n%2===1;}
@@ -178,7 +240,7 @@ function _ltCodecogsWithSpeech(doc,selector,j,cache){
 }
 function _ltWiris(doc,selector,j){var formulas,el,mathml,body,opt,response,svg,imageSrc,speech,img,label,i;try{formulas=doc.select(selector||"math");}catch(e){return;}for(i=0;i<formulas.size();i++){el=formulas.get(i);mathml=_ltString(el.outerHtml());if(!mathml)continue;imageSrc="";try{body="mml="+encodeURIComponent(mathml);opt=JSON.stringify({method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body});response=j.ajax("https://www.wiris.net/demo/editor/render?format=svg,"+opt);svg=_ltString(response).trim();if(svg.indexOf("<svg")>=0&&j.base64Encode)imageSrc="data:image/svg+xml;base64,"+j.base64Encode(svg);}catch(e){try{j.log("WIRIS POST failed: "+e);}catch(ignore){}}if(!imageSrc)continue;try{speech=_ltString(el.attr("data-semantic-speech")||el.text()).replace(/\s+/g," ").trim();img=doc.createElement("img");img.attr("src",imageSrc);img.attr("alt",speech);el.replaceWith(img);if(speech){label=doc.createElement("span");label.addClass("formula-speech");label.addClass("notranslate");label.text(" "+speech+" ");img.after(label);}}catch(e){}}}
 function TH(html,j,cache,options){
-    options=options||{};if(html==null||!_ltString(html).trim())return html;var doc=org.jsoup.Jsoup.parse(_ltString(html)),mode=options.formula_mode,selector=options.formula_selector;
+    options=options||{};if(html==null||!_ltString(html).trim())return html;var doc=org.jsoup.Jsoup.parse(_ltString(html),_ltPageUrl(options.image_base_url||"")),mode=options.formula_mode,selector=options.formula_selector;
     _ltRemove(doc,options.remove_selector||[]);if(!mode&&typeof formula_mode!=="undefined")mode=formula_mode;if(!selector&&typeof formula_selector!=="undefined")selector=formula_selector;
     if(mode==="codecogs"){if(options.formula_speech===true)_ltCodecogsWithSpeech(doc,selector||"math",j,cache);else _ltCodecogs(doc,selector||"math");}else if(mode==="wiris")_ltWiris(doc,selector||"math",j);
     _ltExtract(doc,options.extract_selector||(typeof extract_selector!=="undefined"?extract_selector:[]));_ltReplaceAltImages(doc,options.image_alt_selector||[]);_ltPrepareImages(doc,options.image_base_url||"",options);return TC(doc.body().html(),j,cache,options);
@@ -202,12 +264,17 @@ function _ltFormulaSvgUrl(tex) {
 }
 
 /* Preserve semantic HTML without forcing formula images into setTypeHtml. */
-function ltUseHtmlBlocks(html) {
+function ltUseHtmlBlocks(html,base,options) {
     var s = _ltString(html);
     if (!s) return s;
     var doc, blocks, i, el, one, key, out, prefix = "LDUHM";
     var store = [];
-    try { doc = org.jsoup.Jsoup.parseBodyFragment(s); } catch (e) { return s; }
+    try {
+        doc = org.jsoup.Jsoup.parseBodyFragment(s,_ltPageUrl(base||""));
+        doc.outputSettings().prettyPrint(false);
+        doc.select("usehtml").unwrap();
+        _ltPrepareImages(doc,base||"",options||{});
+    } catch (e) { return s; }
     try { blocks = doc.select("h1,h2,h3,h4,h5,h6,blockquote"); } catch (e) { return s; }
     // Do not accidentally replace user text which happens to resemble a marker.
     while (s.indexOf(prefix) >= 0) prefix += "X";
@@ -220,10 +287,14 @@ function ltUseHtmlBlocks(html) {
         store.push(one);
         try { el.replaceWith(new org.jsoup.nodes.TextNode(key)); } catch (e) { store.pop(); }
     }
-    if (!store.length) return s;
     try { out = String(doc.body().html()); } catch (e) { return s; }
     for (i = 0; i < store.length; i++) {
-        out = out.split(prefix + i + "LDUHE").join("\n<usehtml>" + store[i] + "</usehtml>\n");
+        var marker = new RegExp("[\\r\\n]*" + prefix + i + "LDUHE[\\r\\n]*", "g");
+        // A callback keeps literal $&, $1 and TeX backslashes out of String's
+        // replacement syntax, and repeated calls never nest usehtml wrappers.
+        out = out.replace(marker, (function (block) {
+            return function () { return "\n<usehtml>" + block + "</usehtml>\n"; };
+        })(store[i]));
     }
     return out;
 }
