@@ -104,6 +104,12 @@ try { var bad=smokeCaller('A');bad.ajaxAll=function(){throw new TypeError('COMMO
 catch(e){smokeProgramErrors=e instanceof TypeError&&String(e).indexOf('COMMON-EXPECTED-BUG')>=0;}
 try {api.TH('<p>bad selector</p>',java,smokeCache,{remove_selector:['[']});}
 catch(e){smokeSelectorErrors=true;}
+var smokeServiceJson=api.serviceJson('{"value":"kept"}').value==='kept'&&api.serviceJson('<html>blocked</html>')===null;
+var smokeServiceConversionErrors=false,smokeConversionError=new SyntaxError('COMMON-EXPECTED-CONVERSION-BUG');
+try{api.serviceJson({toString:function(){throw smokeConversionError;}});}
+catch(e){smokeServiceConversionErrors=e===smokeConversionError;}
+var smokePrimitiveErrors=false;
+try{api.networkError(null,java);}catch(e){smokePrimitiveErrors=e===null;}
 var smokeMetrics = {kind:'Android-pinned-common-short-smoke',initiallyLoaded:smokeLoadedInitially,
   loaded:!!commonJs,version:String(api.version),
   callerIsolation:smokeFirst==='A:first'&&smokeSecond==='B:second',
@@ -112,6 +118,8 @@ var smokeMetrics = {kind:'Android-pinned-common-short-smoke',initiallyLoaded:smo
   svgAlias:/\\.svg$/.test(smokeSrc.split(',{')[0].split('?')[0]),
   imageUris:smokeImageUris,htmlExtraction:smokeHtmlExtraction,repeatedHtml:smokeRepeatedHtml,
   loginSettings:smokeLogin,programErrorsVisible:smokeProgramErrors,selectorErrorsVisible:smokeSelectorErrors,
+  serviceJson:smokeServiceJson,serviceConversionErrors:smokeServiceConversionErrors,
+  primitiveErrors:smokePrimitiveErrors,
   mode:smokeMode,headingsWrapped:String(smokeHtml).indexOf('<usehtml><h1>')>=0,
   imagesOutsideHtml:org.jsoup.Jsoup.parseBodyFragment(String(smokeHtml)).select('usehtml img').size()===0};
 java.log('COMMON-SMOKE-METRICS '+JSON.stringify(smokeMetrics));
@@ -171,7 +179,8 @@ async function smoke(dir) {
     &&metrics.siteFormulaConfig&&metrics.parserAccepted&&metrics.parserCalls>0&&metrics.exactTex
     &&metrics.svgAlias&&metrics.headingsWrapped&&metrics.imagesOutsideHtml
     &&metrics.imageUris&&metrics.htmlExtraction&&metrics.repeatedHtml
-    &&metrics.loginSettings&&metrics.programErrorsVisible&&metrics.selectorErrorsVisible;
+    &&metrics.loginSettings&&metrics.programErrorsVisible&&metrics.selectorErrorsVisible
+    &&metrics.serviceJson&&metrics.serviceConversionErrors&&metrics.primitiveErrors;
   privateWrite(dir,'smoke-summary-'+Date.now()+'.json',{...summary,metrics,passed:!!passed});
   return {...summary,metrics,passed:!!passed};
 }
@@ -225,7 +234,7 @@ async function diagnostic(dir,kind='network') {
       return 'COMMON-CONTROL-CACHE';
     })()`;
   } else if(kind==='ajax-eval'){
-    code=`(function(){java.log('COMMON-DIAG-STAGE ajax-eval-begin');var started=new Date().getTime();var text=String(java.ajax(${safeJson(url)},10000));var api=eval(text);var doc=org.jsoup.Jsoup.parseBodyFragment(api.ltPrepareImages('<p>A<img src="//cdn.example.test/x.svg">B</p>',java));var metrics={kind:'phone-ajax-runtime-eval',ok:api.version==='3'&&String(doc.select('img').attr('src'))==='//cdn.example.test/x.svg',version:String(api.version),characters:text.length,elapsedMs:new Date().getTime()-started};java.log('COMMON-DIAG-METRICS '+JSON.stringify(metrics));return 'COMMON-CONTROL-AJAX-EVAL';})()`;
+    code=`(function(){java.log('COMMON-DIAG-STAGE ajax-eval-begin');var started=new Date().getTime();var text=String(java.ajax(${safeJson(url)},10000));var api=eval(text);var doc=org.jsoup.Jsoup.parseBodyFragment(api.ltPrepareImages('<p>A<img src="//cdn.example.test/x.svg">B</p>',java));var jsonOk=api.serviceJson('{"value":"kept"}').value==='kept'&&api.serviceJson('<html>blocked</html>')===null;var original=new SyntaxError('COMMON-DIAG-CONVERSION-BUG'),conversionOk=false;try{api.serviceJson({toString:function(){throw original;}});}catch(e){conversionOk=e===original;}var primitiveOk=false;try{api.networkError(null,java);}catch(e){primitiveOk=e===null;}var metrics={kind:'phone-ajax-runtime-eval',ok:api.version==='3'&&String(doc.select('img').attr('src'))==='//cdn.example.test/x.svg'&&jsonOk&&conversionOk&&primitiveOk,serviceJson:jsonOk,serviceConversionErrors:conversionOk,primitiveErrors:primitiveOk,version:String(api.version),characters:text.length,elapsedMs:new Date().getTime()-started};java.log('COMMON-DIAG-METRICS '+JSON.stringify(metrics));return 'COMMON-CONTROL-AJAX-EVAL';})()`;
   } else assert(kind==='network'||kind==='import','known diagnostic required');
   const key='--'+HEALTH+','+safeJson({bodyJs:code,timeout:10000});
   const result=await client(dir).debug(state.id,key,25000);

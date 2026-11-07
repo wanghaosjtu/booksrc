@@ -170,6 +170,28 @@ test('a known I/O failure preserves text and logs, but an ordinary JS error cann
   const error=new Error('actual bug');j.ajaxAll=()=>{throw error;};
   assert.throws(()=>c.TT('uncached',j,cache),e=>e===error);
 });
+test('literal thrown values, including null and undefined, stay the original failure',()=>{
+  const c=loaded(),api=c.common(caller('en'));
+  for(const value of [null,undefined,false,0,'literal bug']){
+    let caught=false;
+    try{api.networkError(value,null);}catch(error){caught=true;assert.equal(error,value);}
+    assert(caught);
+  }
+});
+test('service JSON accepts server data only and never hides caller conversion errors',()=>{
+  const c=loaded(),api=c.common(caller('en'));
+  assert.deepEqual(JSON.parse(JSON.stringify(api.serviceJson('{"title":"article"}'))),{title:'article'});
+  assert.equal(api.serviceJson('<html>blocked</html>'),null);
+  assert.equal(api.serviceJson('"broken'),null);
+  assert.equal(api.serviceJson('"https://example.test/a.svg?sig=a%2Fb+1"'),'https://example.test/a.svg?sig=a%2Fb+1');
+  const messages=[];
+  assert.equal(api.serviceJson('<html>private server response</html>',{log:v=>messages.push(v)}),null);
+  assert.deepEqual(messages,['Common service returned invalid JSON']);
+  for(const ErrorType of [SyntaxError,TypeError]){
+    const error=new ErrorType('caller conversion bug');
+    assert.throws(()=>api.serviceJson({toString(){throw error;}}),e=>e===error);
+  }
+});
 test('Next.js wire HTML decoding preserves raw TeX backslashes rather than interpreting them as newlines',()=>{
   const c=common(),html=String.raw`<article class="article-body"><p>x \neq y, d\mathrm{snr}, literal \n text</p></article>`;
   assert.equal(c._ltRscHtml('self.__next_f.push([1,'+JSON.stringify(html)+']);'),html);

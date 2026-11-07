@@ -38,3 +38,18 @@ test('transport errors remain errors even when a completion message exists', () 
     assert(summarizeDebug({...result, ...overrides}, '--article').isError);
   }
 });
+test('echoed request source is not a runtime exception, but real failures beside it remain visible',()=>{
+  const url='https://example.test/health,'+JSON.stringify({bodyJs:'var expected=new SyntaxError("caught");var note="正文页解析完成 目录页解析完成 <usehtml><h1>input</h1></usehtml> 调试通道占用中";'});
+  const result={opened:true,closeCode:1000,messages:['开始访正文页:'+url,'获取成功:'+url,'正文页解析完成']};
+  assert(!summarizeDebug(result,'--'+url).isError);
+  assert.deepEqual(summarizeDebug(result,'--'+url).errors,[]);
+  const incomplete=summarizeDebug({...result,messages:result.messages.slice(0,-1)},'--'+url);
+  assert(incomplete.isError&&!incomplete.contentFinished&&!incomplete.tocFinished&&!incomplete.busy);
+  assert.equal(incomplete.usehtmlBlocks,0);assert.equal(incomplete.headingTags,0);
+  for(const message of ['SyntaxError: actual bug','TypeError: actual bug','ScriptException: '+url+' actual bug']){
+    assert(summarizeDebug({...result,messages:[...result.messages,message]},'--'+url).isError);
+  }
+});
+test('empty or keyword debug keys cannot erase actual exception names',()=>{
+  for(const key of ['', 'SyntaxError'])assert(summarizeDebug({opened:true,closeCode:1000,messages:['SyntaxError: actual bug']},key).isError);
+});

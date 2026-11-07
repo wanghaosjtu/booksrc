@@ -353,7 +353,43 @@ function removeDead(tree,protectedNames=new Set()) {
   } while(changed);
   return tree;
 }
-function simplifyProgram(code,globals,{content=false,protectedNames=new Set(),inactiveCommon=false,errorPolicy='empty'}={}) {
+function ieeeServiceJson(tree) {
+  const signedBodies=new Set([
+    '933a93039e2726532bf6f64b4ea62fa8fbc19301c85032f467805d05c99b1bde',
+    '1b94e73914676023aa257f184a28c54949be953e5f1c6b2f71543c6ed45db396'
+  ]);
+  const jsonParse=n=>memberCall(n,'parse')&&n.callee.object.name==='JSON'&&n.arguments.length===1;
+  return transform(tree,n=>{
+    if(n.type==='FunctionDeclaration'&&n.id.name==='ieeeSignedValue'&&signedBodies.has(hash(js(n)))) {
+      return transform(n,x=>jsonParse(x)?call('serviceJson',[...x.arguments,id('java')]):x);
+    }
+    if(jsonParse(n)) {
+      let external=false;
+      walk(n.arguments[0],x=>{if(memberCall(x,'ajax')&&x.callee.object.name==='java')external=true;});
+      if(external)return call('serviceJson',[...n.arguments,id('java')]);
+    }
+    return n;
+  });
+}
+function nativeOutputUrls(tree,kind) {
+  const known={
+    carnegieContent:{kind:'content',variable:'image',hash:'588201726f8c005576db3cf6ab541399c3370a049ad19c137cbcc32d06bec855'},
+    journalCover:{kind:'cover',variable:'own',hash:'9e83c41f1f1b3c1bada9e7f70429da9219e43a0ae4cc68ad005c3cb01f38e662'}
+  };
+  return transform(tree,n=>{
+    if(n.type!=='FunctionExpression'||!n.id)return n;
+    const owned=known[n.id.name];
+    if(!owned||owned.kind!==kind||hash(js(n))!==owned.hash)return n;
+    return transform(n,x=>{
+      if(x.type==='VariableDeclarator'&&x.id.name===owned.variable&&commonCall(x.init,'resolveRequest')&&x.init.arguments[1]?.name==='url'){
+        const raw=x.init.arguments[0];
+        x.init=kind==='cover'?expression('('+js(raw)+').trim()'):raw;
+      }
+      return x;
+    });
+  });
+}
+function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNames=new Set(),inactiveCommon=false,errorPolicy='empty'}={}) {
   let tree=parse(code);
   const replacement=LEGACY_TRANSLATIONS[hash(js(tree))];if(replacement)tree=parse(replacement);
   const defaults=constantSettings(tree,globals);
@@ -373,6 +409,7 @@ function simplifyProgram(code,globals,{content=false,protectedNames=new Set(),in
   const initializers=tree.body.filter(targetLangInit),without={...tree,body:tree.body.filter(n=>!initializers.includes(n))};
   if(!reads(without).has('TARGET_LANG'))tree=without;
   if(content)tree=simpleContent(tree,defaults,inlineGlobals)||simpleImages(tree)||tree;
+  if(errorPolicy==='ieee')tree=ieeeServiceJson(tree);
   tree=transform(tree,n=>{
     if(n.type==='TryStatement'&&n.handler && !n.handler.body.body.length) {
       return n.finalizer?{...n,handler:null}:n.block;
@@ -380,7 +417,9 @@ function simplifyProgram(code,globals,{content=false,protectedNames=new Set(),in
     if(n.type==='TryStatement'&&n.handler&&errorPolicy!=='empty'){
       const code=js(n.block),error=n.handler.param.name;
       if(errorPolicy==='ieee'&&/java\.ajax\(/.test(code)){
-        if(!js(n.handler.body).includes('.networkError('))n.handler.body.body.unshift(...parse('if (!('+error+' instanceof SyntaxError)) common(java).networkError('+error+', java);').body);
+        const oldGuard=js(parse('if (!('+error+' instanceof SyntaxError)) common(java).networkError('+error+', java);').body[0]);
+        n.handler.body.body=n.handler.body.body.map(s=>js(s)===oldGuard?s.consequent:s);
+        if(!js(n.handler.body).includes('.networkError('))n.handler.body.body.unshift(...parse('common(java).networkError('+error+', java);').body);
         return n;
       }
       if(errorPolicy==='inc'&&/java\.webView\(/.test(code)){
@@ -421,6 +460,7 @@ function simplifyProgram(code,globals,{content=false,protectedNames=new Set(),in
     return n;
   });
   tree=removeDead(tree,protectedNames);
+  if(nativeOutput)tree=nativeOutputUrls(tree,nativeOutput);
   return js(tree);
 }
 function segments(text,fn) {
@@ -535,7 +575,7 @@ function simplifySource(source,commit,runtime) {
         if(parts.length===3&&hash(js(parse(parts[0][1])))==='c722bad38a6fca50e06733b5e3d458739b96d0cfd28c6f2ff44f64d229e74b62'&&LEGACY_TRANSLATIONS[hash(js(parse(parts[2][1])))])input=value.replace(parts[0][0],'').trimStart();
       }
       const errorPolicy=source.bookSourceUrl==='https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber='&&name==='content'?'ieee':source.bookSourceUrl==='https://www.inc.com/'&&name==='content'?'inc':'strict';
-      const fn=code=>simplifyProgram(code,globals,{content:name==='content',protectedNames:cross,inactiveCommon,errorPolicy});
+      const fn=code=>simplifyProgram(code,globals,{content:name==='content',nativeOutput:name==='content'?'content':name==='coverUrl'?'cover':'',protectedNames:cross,inactiveCommon,errorPolicy});
       try {
         if(name==='webJs')obj[name]=simplifyWeb(input,globals,commit);
         else if(input.startsWith('@js:'))obj[name]='@js:'+fn(input.slice(4));

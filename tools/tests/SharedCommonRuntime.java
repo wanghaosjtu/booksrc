@@ -9,6 +9,7 @@ import io.legado.app.model.analyzeRule.RuleAnalyzer;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import io.legado.app.utils.HtmlFormatter;
+import io.legado.app.utils.NetworkUtils;
 
 /** Real engine/DOM/parser; importScript is stubbed, not a phone network test. */
 public final class SharedCommonRuntime {
@@ -241,6 +242,38 @@ public final class SharedCommonRuntime {
         eval("var invalidSelector=false;try{TH('<p>text</p>',first,cc,{remove_selector:['[']});}catch(e){invalidSelector=true;}");
         check(Boolean.TRUE.equals(eval("invalidSelector")),"bad CSS selectors surface instead of becoming empty content");
     }
+    private void serviceJson() throws Exception {
+        check(Boolean.TRUE.equals(eval("_ltServiceJson('{\"title\":\"article\"}').title==='article'")),"service JSON preserves valid response data");
+        check(Boolean.TRUE.equals(eval("_ltServiceJson('<html>blocked</html>')===null")),"malformed external JSON is a service fallback");
+        for(String kind:new String[]{"SyntaxError","TypeError"}){
+            check(Boolean.TRUE.equals(eval("(function(){var original=new "+kind+"('conversion bug');try{_ltServiceJson({toString:function(){throw original;}});}catch(e){return e===original;}return false;})()")),"service JSON preserves original caller "+kind);
+        }
+        for(String value:new String[]{"null","undefined"}){
+            check(Boolean.TRUE.equals(eval("(function(){var original="+value+";try{_ltNetworkError(original,null);}catch(e){return e===original;}return false;})()")),"network guard keeps literal "+value);
+        }
+    }
+    private void nativeSourceOutputs() throws Exception {
+        eval("var nativeSources=JSON.parse(String(__allSources)),heroRule='',coverRule='';"
+            +"for(var i=0;i<nativeSources.length;i++){var s=nativeSources[i];if(s.bookSourceName==='Carnegie Mosco')heroRule=s.ruleContent.content;if(s.bookSourceName==='中国社会科学期刊')coverRule=s.ruleBookInfo.coverUrl;}"
+            +"heroRule=heroRule.match(/<js>([\\s\\S]*?)<\\/js>/)[1];coverRule=coverRule.match(/<js>([\\s\\S]*?)<\\/js>/)[1];"
+            +"var java={},cache={get:function(){return null;},put:function(){}};function common(){return {challenge:function(){return false;},finish:function(doc){return String(doc.body().html());}};}");
+        String base="http://carnegie.ru/chapters/current/page.html";
+        bind("baseUrl",base);
+        bind("result","<div class='article-body'><div class='zone-title background-cover' style='background-image:url(../hero.svg)'>Hero</div><p>Article text</p></div>");
+        Document hero=Jsoup.parseBodyFragment(String.valueOf(eval("eval(heroRule);result")));
+        check(hero.select("img").attr("src").equals("../hero.svg"),"source hero output stays relative");
+        check(Jsoup.parseBodyFragment(HtmlFormatter.INSTANCE.formatKeepImg(hero.body().html(),new java.net.URL(base))).select("img").attr("src").equals("http://carnegie.ru/chapters/hero.svg"),"native formatter resolves the same-page hero");
+        base="https://www.cssn.cn/dkzgxp/topic/page.html";
+        String[] relative={"//cdn.example.test/cover.svg","/assets/cover.svg","covers/cover.svg?sig=a%2Fb+1"};
+        String[] absolute={"https://cdn.example.test/cover.svg","https://www.cssn.cn/assets/cover.svg","https://www.cssn.cn/dkzgxp/topic/covers/cover.svg?sig=a%2Fb+1"};
+        bind("baseUrl",base);
+        for(int i=0;i<relative.length;i++){
+            bind("result","<div class='list_text_left'><div class='list_img'><img data-src='"+relative[i]+"' src='placeholder.svg'></div></div>");
+            String raw=String.valueOf(eval("eval(coverRule);result"));
+            check(raw.equals(relative[i]),"source cover raw case "+i);
+            check(NetworkUtils.INSTANCE.getAbsoluteURL(base,raw).equals(absolute[i]),"native BookInfo URL method resolves cover case "+i);
+        }
+    }
     public static void main(String[] args) throws Exception {
         if (args.length < 5 || args.length > 6) throw new IllegalArgumentException("legacy common loader engine canonical [IEEE capture]");
         String legacy = read(args[0]), common = read(args[1]), loader = read(args[2]);
@@ -254,7 +287,9 @@ public final class SharedCommonRuntime {
         // The parser scope has common functions; set deterministic callers.
         parser.eval("var first={get:function(){return 'en';},ajaxAll:function(){return [];},log:function(){}};var cc={get:function(){return null;},put:function(){}};");
         parser.readableAndFormulas();
+        parser.serviceJson();
         parser.allLibraries(common,read(args[4]),args[3]);
+        parser.nativeSourceOutputs();
         System.out.println("{\"status\":\"PASS\",\"checks\":" + (first.checks + second.checks + parser.checks)
             + ",\"engine\":\"actual-Rhino\",\"parser\":\"actual-Kotlin-RuleAnalyzer\",\"nativeFormatter\":true,\"nativeNetworkMethods\":true,\"compiledScripts\":"+parser.compiledScripts+",\"phoneNetworkVerified\":false}");
     }

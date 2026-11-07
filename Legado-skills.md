@@ -11,6 +11,8 @@ description: 为指定网站生成 Legado 阅读 App 的书源 JSON。支持俄�
 
 公共入口均为 `common(java).方法(...)`：TT 翻译单值/数组并缓存、分批和最多四路并发；TJ 翻译 JSON 并跳过 URL/ID；TC 只翻译文本节点；TH 统一移除、提取、图片、公式和可选 Readability。`ltExtract(htmlOrDoc,java,selectors)` 对 usehtml 解包 DOM，普通选择器（如 TeX）仍提取文字；`ltPrepareImages(htmlOrDoc,java,options)` 只处理图片。网络 I/O/服务无效响应保留原文；选择器、类型、JSON/脚本错误必须抛出，不加宽泛 catch，不伪造空目录。
 
+`serviceJson(response,java)` 只解码外部服务的 JSON：无效 JSON 返回 null 并记录不含原文的诊断；转换输入前的程序异常仍抛出。缓存和本地规则数据继续用 JSON.parse，不能用此方法掩盖坏缓存。IEEE 的网络 catch 不再豁免所有 SyntaxError，只有这一步外部解码允许回退。
+
 只保留被引用的内联设置，不再生成五个未使用变量；TH 配置明确传入，不能从隐藏 factory 读取。canonical 额外元数据仅供统计，Android 导入会丢弃它们。JSON 目录一次 TJ，HTML 目录一次 TH 后再选择节点。保留 IEEE/Springer CodeCogs、ScienceDirect/Sage MathML/WIRIS 和 WAF/签名等站点逻辑；不要重复 Rhino 正文翻译与 WebView 整页翻译，WebView 只用公共 webClean 清理 DOM/Readability。
 
 当前 Edge `translatetext` 接口可匿名调用；若 `https://edge.microsoft.com/translate/auth` 返回 404，公共 runtime 仍会带空 `Bearer` 继续请求，失败时保留原文。不要把 auth 404 当作整页翻译失败。
@@ -523,8 +525,8 @@ node tools/shared_common_phone.js snapshot booksource/.usehtml-validation-phone/
 公共库发布在 `common-runtime` 分支。当前 v3 的完整 commit：
 
 ```text
-2a746411dff84335ff5e6fe249d2dfdd2cb42d0e
-https://raw.githubusercontent.com/wanghaosjtu/booksrc/2a746411dff84335ff5e6fe249d2dfdd2cb42d0e/booksource/runtime/legado-shared-runtime.js
+0fa34494c322b71172bd5e11f1897a570c319364
+https://raw.githubusercontent.com/wanghaosjtu/booksrc/0fa34494c322b71172bd5e11f1897a570c319364/booksource/runtime/legado-shared-runtime.js
 ```
 
 全量迁移 canonical 的每个唯一身份，包括 disabled、空 jsLib、自定义库及音频源。中国社会科学期刊的 `burl`、Test 的 `datestr` 必须保留。以下三个历史试点的身份仍不能按名称改写：

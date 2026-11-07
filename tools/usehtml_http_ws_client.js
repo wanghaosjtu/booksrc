@@ -22,21 +22,25 @@ function changedPaths(before, after, prefix = '') {
 
 function summarizeDebug(result, key = '') {
   const text = result.messages.join('\n');
-  const contentFinished = /正文页解析完成/.test(text);
-  const tocFinished = /目录页解析完成/.test(text);
-  const error = /(?:ScriptException|JavaScriptException|ReferenceError|EvaluatorException|EcmaError|SyntaxError|UnknownHostException|SocketTimeoutException|ContentEmptyException|调试通道占用中|目录列表为空|需要手动认证|不允许的字符)/;
+  // Request URLs can echo bodyJs containing an intentionally caught exception.
+  // Remove only the supplied URL, never real diagnostics or keyword matches.
+  const requestUrl=key.replace(/^(?:--|\+\+)/,'');
+  const diagnostics=/^https?:\/\//i.test(requestUrl)?text.split(requestUrl).join('[request URL]'):text;
+  const contentFinished = /正文页解析完成/.test(diagnostics);
+  const tocFinished = /目录页解析完成/.test(diagnostics);
+  const error = /(?:ScriptException|JavaScriptException|ReferenceError|EvaluatorException|EcmaError|SyntaxError|TypeError|RangeError|URIError|EvalError|UnknownHostException|SocketTimeoutException|ContentEmptyException|调试通道占用中|目录列表为空|需要手动认证|不允许的字符)/;
   const missingCompletion = key.startsWith('--') ? !contentFinished : key.startsWith('++') ? !tocFinished : false;
   return {
     transport: result.transport, opened: result.opened, timedOut: result.timedOut,
     elapsedMs: result.elapsedMs, connectionFailure: result.connectionFailure,
     implementation: result.implementation, clientHeartbeats: result.clientHeartbeats, pingCount: result.pingCount,
     isError: !!(result.connectionError || result.timedOut || !result.opened || result.closeCode !== 1000
-      || error.test(text) || missingCompletion),
-    busy: /调试通道占用中/.test(text), characters: text.length,
+      || error.test(diagnostics) || missingCompletion),
+    busy: /调试通道占用中/.test(diagnostics), characters: text.length,
     contentFinished, tocFinished,
-    usehtmlBlocks: (text.match(/<usehtml>/g) || []).length,
-    headingTags: (text.match(/<h[1-6]\b/g) || []).length,
-    errors: text.split('\n').filter(line => error.test(line)).slice(0, 3)
+    usehtmlBlocks: (diagnostics.match(/<usehtml>/g) || []).length,
+    headingTags: (diagnostics.match(/<h[1-6]\b/g) || []).length,
+    errors: diagnostics.split('\n').filter(line => error.test(line)).slice(0, 3)
       .map(line => line.replace(/https?:\/\/\S+/g, '[URL]')
         .replace(/(?:cookie|authorization|password|token|api[-_]?key)\s*[:=][^\n]*/gi, '[redacted]').slice(0, 250))
   };

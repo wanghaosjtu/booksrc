@@ -88,6 +88,52 @@ test('empty and strict error catches expose the original error rather than fabri
     assert.throws(()=>vm.runInNewContext(out),/real bug/);
   }
 });
+function ieeeNetworkFixture(){
+  const source=sources.find(s=>s.bookSourceUrl==='https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=');
+  const tree=m.parse(source.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1]);
+  const helpers=[],requests=[];
+  m.walk(tree,n=>{
+    if(n.type==='FunctionDeclaration'&&n.id.name==='ieeeSignedValue')helpers.push(m.js(n));
+    if(n.type==='TryStatement'&&n.handler&&/java\.ajax\(/.test(m.js(n.block)))requests.push(n);
+  });
+  assert.equal(requests.length,3,'full text, metadata, and signed-media requests');
+  return {tree,helpers:helpers.join('\n'),requests};
+}
+function ieeeNetworkScope(helpers){
+  const scope=vm.createContext({common:()=>api,java:{log(){}},cache:{get:()=>null,put(){}},
+    ieeeDocumentId:'9737357',ieeeReferer:'https://ieeexplore.ieee.org/document/9737357',
+    ieeeFullTextUrl:'https://example.test/fulltext',ieeeOptions:'',ieeeMetadataKey:'metadata',resource:'figure',key:'signed'});
+  vm.runInContext(helpers,scope);
+  return scope;
+}
+test('all IEEE request catches preserve original ajax and cache programming exceptions, including SyntaxError',()=>{
+  const {requests,helpers}=ieeeNetworkFixture();
+  for(const request of requests)for(const ErrorType of ['SyntaxError','TypeError']){
+    const scope=ieeeNetworkScope(helpers),error=vm.runInContext('new '+ErrorType+'("IEEE ajax bug")',scope);
+    scope.java.ajax=()=>{throw error;};
+    assert.throws(()=>vm.runInContext('(function(){'+m.js(request)+'})()',scope),e=>e===error);
+    if(/cache\.put\(/.test(m.js(request.block))){
+      scope.java.ajax=()=>/ieeeSignedValue/.test(m.js(request.block))?'https://example.test/a.svg':'{"title":"article"}';
+      scope.cache.put=()=>{throw error;};
+      assert.throws(()=>vm.runInContext('(function(){'+m.js(request)+'})()',scope),e=>e===error);
+    }
+  }
+});
+test('IEEE invalid service JSON falls back, signed URLs stay exact, and corrupt cached JSON still throws',()=>{
+  const {tree,requests,helpers}=ieeeNetworkFixture();
+  for(const request of requests){
+    const scope=ieeeNetworkScope(helpers);scope.java.ajax=()=> '"broken';
+    assert.doesNotThrow(()=>vm.runInContext('(function(){'+m.js(request)+'})()',scope));
+  }
+  const scope=ieeeNetworkScope(helpers),signed='https://example.test/a.svg?sig=a%2Fb+1&expiry=23';
+  assert.equal(scope.ieeeSignedValue(JSON.stringify(signed)),signed);
+  assert.equal(scope.ieeeSignedValue(signed),signed);
+  let metadata;
+  m.walk(tree,n=>{if(n.type==='FunctionDeclaration'&&n.id.name==='ieeeArticleMetadata')metadata=n;});
+  assert(metadata,'metadata helper exists inside the conditional article block');
+  vm.runInContext(m.js(metadata),scope);scope.cache.get=()=>'{broken';
+  assert.throws(()=>scope.ieeeArticleMetadata(),/JSON|Unexpected/);
+});
 test('all 108 identities and non-JS fields survive; local and phone objects are independent',()=>{
   assert.equal(sources.length,108);
   const editable=new Set(['jsLib','loginUrl','loginUi','loginCheckJs','searchUrl','exploreUrl','header']);
@@ -144,6 +190,19 @@ test('Nature/Qiushi remain TEXT/image-only; protocol-relative images are left to
   const qiushi=sources.find(s=>s.bookSourceName==='求是网').ruleContent.content;
   assert(qiushi.includes('common(java).ltPrepareImages(result, java)'));
   assert(!/\.TH\(|\.TC\(|<usehtml>|attributes\(\)/.test(qiushi));
+});
+test('known same-page hero and cover outputs stay relative; cross-page/protocol work and unknown edits stay intact',()=>{
+  const carnegie=sources.find(s=>s.bookSourceName==='Carnegie Mosco');
+  assert(carnegie.ruleContent.content.includes('var image = background[1].trim();'));
+  assert(!carnegie.ruleContent.content.includes('.resolveRequest('));
+  assert(carnegie.ruleToc.chapterUrl.includes('.resolveRequest('),'HTTP-only mirror normalization remains');
+  const cover=sources.find(s=>s.bookSourceName==='中国社会科学期刊').ruleBookInfo.coverUrl;
+  assert.equal((cover.match(/\.resolveRequest\(/g)||[]).length,1,'only the other-page portal cover is resolved');
+  assert(cover.includes("covers.get(i).attr('src')"));
+  const before=local.find(s=>s.bookSourceName==='Carnegie Mosco');
+  const edited=before.ruleContent.content.replace('var image = background[1].trim();','var image = common(java).resolveRequest(background[1].trim(), url);')
+    .replace('var hero =','java.log("user edit");\nvar hero =');
+  assert(convert({...before,ruleContent:{...before.ruleContent,content:edited}}).ruleContent.content.includes('.resolveRequest('));
 });
 test('remaining old translators are gone and Oxford keeps metadata extraction before one TH',()=>{
   for(const s of sources)for(const[k,v]of Object.entries(s))if(k.startsWith('rule'))assert(!/translate\/auth|translatetext|api-edge\.cognitive/.test(JSON.stringify(v)),s.bookSourceName+' '+k);
