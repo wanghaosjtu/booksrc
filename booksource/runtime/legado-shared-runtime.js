@@ -36,7 +36,7 @@ function _ltRequests(j,urls){
     }
 }
 function _ltNetworkError(e,j){
-    if(!e.javaException||!(e.javaException instanceof Packages.java.io.IOException))throw e;
+    if(!e||!e.javaException||!(e.javaException instanceof Packages.java.io.IOException))throw e;
     j.log("Common service unavailable: "+String(e.javaException.getClass().getSimpleName()));
 }
 /* Invalid external JSON is a service response, not a caller/cached-data error.
