@@ -18,6 +18,11 @@ TRANSLATION_FIELDS = {
 }
 RUNTIME = (ROOT / "booksource/runtime/legado-translation-runtime.js").read_text(encoding="utf-8")
 MARKER = "/* legado-translation-runtime v1"
+NETWORK_MARKER = "/* legado-common-loader v1"
+
+
+def network_common(source):
+    return NETWORK_MARKER in str(source.get("jsLib") or "")
 
 def source_identity(source):
     return (source.get("bookSourceName"), source.get("bookSourceUrl"))
@@ -32,14 +37,18 @@ def restore_login_fields(data):
         missing = sorted(set(backup_by_id) - current_ids)
         extra = sorted(current_ids - set(backup_by_id))
         raise SystemExit("login backup identity mismatch: missing=%r extra=%r" % (missing[:5], extra[:5]))
+    restored = 0
     for source in data:
+        if network_common(source):
+            continue
         saved = backup_by_id[source_identity(source)]
         for field in LOGIN_FIELDS:
             if field in saved:
                 source[field] = saved[field]
             else:
                 source.pop(field, None)
-    return len(backup_by_id)
+        restored += 1
+    return restored
 
 
 def restore_nontranslation_fields(source, legacy_source):
@@ -736,6 +745,8 @@ def assert_login_fields(data, backup_data, label):
         raise SystemExit("%s: source identity mismatch" % label)
     errors = []
     for identity, source in actual.items():
+        if network_common(source):
+            continue
         baseline = expected[identity]
         for field in LOGIN_FIELDS:
             if source.get(field) != baseline.get(field):
@@ -782,7 +793,7 @@ def main():
     changed = 0
     selected = 0
     for source in data:
-        if not translated(source):
+        if network_common(source) or not translated(source):
             continue
         current_mode = mode(source)
         if current_mode is None:
@@ -832,8 +843,9 @@ def main():
         # Site-specific cleanup added above must also reach every inline TH call.
         apply_remove_selectors(source, legacy_source)
         changed += 1
-    if selected != 55:
-        raise SystemExit("expected 55 formal translated sources, found %d" % selected)
+    expected_legacy = 55 - sum(network_common(source) for source in data)
+    if selected != expected_legacy:
+        raise SystemExit("expected %d legacy translated sources, found %d" % (expected_legacy, selected))
     restored = restore_login_fields(data)
     assert_login_fields(data, backup_data, "before writing formal source")
     SOURCE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

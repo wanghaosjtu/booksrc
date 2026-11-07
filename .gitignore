@@ -23,3 +23,6 @@ booksource/BookSource_*.json
 *.html
 state.json
 tools/__pycache__/
+
+# Local JavaScript migration dependencies
+tools/node_modules/

@@ -16,19 +16,39 @@ assert "https://edge.microsoft.com/translate/auth" not in runtime
 assert "function _ltAuth(" not in runtime
 assert 'Authorization:\"Bearer \"' in runtime
 assert "if (!token) return scalar ? output[0] : output;" not in runtime
-all_translation_sources = [s for s in data if any(x in json.dumps(s, ensure_ascii=False).lower() for x in ("microsoft", "edge.microsoft.com", "translatetext")) and s.get("bookSourceName") != "Test"]
-# The formal set is identified by the shared runtime and explicit translation metadata,
-# not by a hand-maintained count. Legacy per-field sources may remain outside this set.
-sources = [s for s in all_translation_sources
-           if "/* legado-translation-runtime v1" in s.get("jsLib", "")
-           and s.get("toc_mode") in ("html", "json")]
+network_marker = "/* legado-common-loader v1"
+loader_template = (root / "booksource/runtime/legado-common-loader.js").read_text(encoding="utf-8")
+shared_runtime = (root / "booksource/runtime/legado-shared-runtime.js").read_text(encoding="utf-8")
+assert 'var LEGADO_SHARED_RUNTIME="1";' in shared_runtime
+assert "function useHtmlRuleJson(" in shared_runtime and "function ltUseHtmlBlocks(" in shared_runtime
+assert "svg.latex.svg?" in shared_runtime
+# Detect network sources by their loader, not by an embedded translation URL.
+sources = [s for s in data if s.get("toc_mode") in ("html", "json")
+           and s.get("bookSourceName") != "Test"
+           and ("/* legado-translation-runtime v1" in s.get("jsLib", "")
+                or network_marker in s.get("jsLib", ""))]
+network = [s for s in sources if network_marker in s.get("jsLib", "")]
+if network:
+    assert {s.get("bookSourceUrl") for s in network} == {
+        "https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=",
+        "https://www.state.gov", "https://carnegieendowment.org/"}, "only the three common pilots may migrate"
 assert sources, "no formal translated sources"
 assert len({s.get("bookSourceUrl") for s in sources}) == len(sources), "duplicate formal source URL"
 for s in sources:
-    assert "/* legado-translation-runtime v1" in s.get("jsLib", "")
-    embedded_runtime = s.get("jsLib", "")[s.get("jsLib", "").index("/* legado-translation-runtime v1"): ]
-    assert embedded_runtime == runtime, s.get("bookSourceName")
-    assert s.get("jsLib", "").count("/* legado-translation-runtime v1") == 1
+    js_lib = s.get("jsLib", "")
+    if network_marker in js_lib:
+        import re
+        match = re.search(r'var LEGADO_COMMON_URL = "https://raw\.githubusercontent\.com/wanghaosjtu/booksrc/([0-9a-f]{40})/booksource/runtime/legado-shared-runtime\.js";', js_lib)
+        assert match, "immutable common URL missing: " + str(s.get("bookSourceName"))
+        assert js_lib.endswith(loader_template.replace("__COMMON_COMMIT__", match.group(1)))
+        assert "/* legado-translation-runtime v1" not in js_lib
+        assert "/runtime/sites/" not in js_lib
+        assert "j.importScript(LEGADO_COMMON_URL)" in js_lib
+    else:
+        assert "/* legado-translation-runtime v1" in js_lib
+        embedded_runtime = js_lib[js_lib.index("/* legado-translation-runtime v1"): ]
+        assert embedded_runtime == runtime, s.get("bookSourceName")
+        assert js_lib.count("/* legado-translation-runtime v1") == 1
     assert s.get("toc_mode") in ("json", "html")
     assert s.get("formula_mode") in ("none", "codecogs", "wiris")
     assert "formula_selector" in s and "remove_selector" in s and "extract_selector" in s
@@ -110,4 +130,4 @@ assert ".wp-block-default-hero-container" in state.get("remove_selector", [])
 assert ".bc_hide" in state.get("remove_selector", [])
 assert "TT(result, java, cache)" in str(state.get("ruleToc", {}).get("chapterName", ""))
 assert "TH(result,java,cache" in str(state.get("ruleContent", {}).get("content", ""))
-print("validated", len(sources), "formal translated sources;", len(html), "HTML TOCs;", len(json_toc), "JSON TOCs;", len(content_abstracted), "abstracted content rules")
+print("validated", len(sources), "formal translated sources;", len(html), "HTML TOCs;", len(json_toc), "JSON TOCs;", len(content_abstracted), "abstracted content rules;", len(network), "network common pilots")

@@ -1,0 +1,11 @@
+{
+  "name": "legado-source-tools",
+  "private": true,
+  "description": "Local source migration and validation tools; not part of the phone runtime",
+  "scripts": {
+    "test:common": "node --test tests/shared_common_test.js"
+  },
+  "dependencies": {
+    "acorn": "8.15.0"
+  }
+}
