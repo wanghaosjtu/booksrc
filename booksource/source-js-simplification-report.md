@@ -2,6 +2,8 @@
 
 2026-11-07，基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。
 
+实现已 check in 为 `b75c199`（`Simplify all source JS with shared common v3`）；工作分支未推送。
+
 ## 改动与发布
 
 - 加载器两行：惰性 importScript + eval，成功后缓存 API；调用为 `common(java).TH/TT/...`。去掉 factory、桥接、版本检查和异常包装，调用者/设置明确传入。
@@ -47,6 +49,10 @@ localhost:1122 返回 ECONNREFUSED。按用户授权改在 `10.92.24.102` 做独
 
 只读线程投影确认 CacheManager.get 的全局锁被另一线程持有：该线程在持锁路径内等待 AnalyzeRule.ajaxAll；21 个缓存入口线程阻塞，importScript/登录/正文缓存均在等待。不替换加载器来掩盖全局缓存问题，不中断用户线程、不反射绕过限制、不修改 App。
 
+提交后在备用机新建独立短样本复查，HTTP 200，WS 只读线程投影 552 ms 完成；同一持锁线程仍等待 ajaxAll，22 个缓存入口阻塞。没有再向缓存入口追加挂起请求，也没有创建测试书。随后删除本轮短源，并完整回读核对原 114 源未变。私有证据目录为 `booksource/.usehtml-validation-phone/source-js-simplification-20261107-10-92-smoke-v3-followup1/`。
+
 需要重开阅读 App 解除缓存锁，再复跑独立样本：真实 importScript、UI/设置、HTML/TEXT、缓存重读、SVG 渲染、WebView common，随后 Nature/求是/IEEE 真正文。通过前不批量部署。原机恢复后先确认最新源与备份一致；如有用户改动重新备份/生成，不用旧快照覆盖。
+
+按阻塞处理要求读取并尝试 `email-followup` 技能预检。Python 3.12.3 及原生等待工具可用，但现有 Outlook 配置的只读 doctor 返回 HTTP 401，临时关闭代理的检查也返回 401。邮件流程未通过预检，因此没有发请示/结果邮件、没有启动原生等待或邮件查询 worker、没有修改认证/全局配置。需要本人在 console 告知已重开 App（可强行停止后重开，无需清理数据），或恢复 localhost 的 1122/1123 后继续验收。
 
 本次私有目录：`booksource/.usehtml-validation-phone/source-js-simplification-20261107-v1/`（原机备份/108 候选）和 `source-js-simplification-20261107-10-92-smoke-v3/`（备用机备份/独立样本/诊断）。正文缓存/完整 EPUB/MOBI 不属于本轮修改；旧 EPUB/calibre 证据不作为 v3 新实机通过证据。
