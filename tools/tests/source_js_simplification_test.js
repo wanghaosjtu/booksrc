@@ -64,7 +64,87 @@ test('optional old TH on a source without a runtime activates only image handlin
 });
 test('conditional common availability checks do not lose another condition',()=>{
   const code='if(typeof TH==="function" && enabled)result=TH(result,java,cache);result;';
-  assert(m.simplifyProgram(code,{}).includes('&& enabled'));
+  const out=m.simplifyProgram(code,{});assert(out.includes('if (enabled)')&&!out.includes('typeof TH'));
+  for(const enabled of [false,true]){
+    let calls=0;
+    const value=vm.runInNewContext(out,{enabled,result:'body',java:{},cache:{},common:()=>{calls++;return {TH:v=>'HTML:'+v};}});
+    assert.equal(calls,enabled?1:0);assert.equal(value,enabled?'HTML:body':'body');
+  }
+  const error=new TypeError('original common load failure');
+  assert.throws(()=>vm.runInNewContext(out,{enabled:true,result:'body',java:{},cache:{},common:()=>{throw error;}}),e=>e===error);
+});
+test('compound availability preserves evaluation order and values used by another comparison',()=>{
+  for(const code of ['if((probe()&&typeof TT==="function")===true)result=TT(result,java,cache);result;',
+    'if(probe()||typeof TT==="function")result=TT(result,java,cache);result;',
+    'result=enabled&&"function"===typeof TT?TT(result,java,cache):result;result;']){
+    const out=m.simplifyProgram(code,{}),events=[];
+    assert(!out.includes('typeof TT'));
+    const value=vm.runInNewContext(out,{enabled:true,result:'body',java:{},cache:{},probe:()=>{events.push('probe');return 'enabled';},common:()=>{events.push('common');return {TT:v=>'translated:'+v};}});
+    assert.equal(value,'translated:body');assert.deepEqual(events,code.includes('probe()')?['probe','common']:['common']);
+  }
+  for(const code of ['if(typeof customHelper==="function"&&enabled)result=customHelper(result);result;',
+    'if(typeof TT==="function"&&enabled)java.put("custom",result);result;'])assert(m.simplifyProgram(code,{}).includes('typeof'));
+});
+test('optional compound TH without a runtime keeps the condition and enables only images',()=>{
+  const s=convert({bookSourceName:'Optional images',bookSourceUrl:'https://images.test',jsLib:'',ruleContent:{content:'<js>if(enabled&&typeof TH==="function")result=TH(result,java,cache,{remove_selector:["header"]});result;</js>'}});
+  assert(s.ruleContent.content.includes('.ltPrepareImages(')&&!s.ruleContent.content.includes('.TH('));
+  const code=s.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1];
+  for(const enabled of [false,true]){
+    let calls=0;
+    const value=vm.runInNewContext(code,{enabled,result:'body',java:{},common:()=>{calls++;return {ltPrepareImages:v=>'images:'+v};}});
+    assert.equal(calls,enabled?1:0);assert.equal(value,enabled?'images:body':'body');
+  }
+});
+test('legacy TH checks around an already image-only helper do not disable phone image preparation',()=>{
+  for(const lib of ['',loader(COMMIT)]){
+    const source=convert({bookSourceName:'Existing phone images',bookSourceUrl:'https://images.test',jsLib:lib,
+      ruleContent:{content:'<js>if(enabled&&typeof TH==="function")result=ltPrepareImages(result,java,{image_base_url:baseUrl});result;</js>'}});
+    const code=source.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1];
+    assert(!code.includes('typeof TH')&&!code.includes('.TH(')&&!code.includes('image_base_url'));
+    for(const enabled of [false,true]){
+      let calls=0;
+      const value=vm.runInNewContext(code,{enabled,result:'<img src="//cdn.test/x.svg">',java:{},common:()=>({ltPrepareImages:v=>{calls++;return v;}})});
+      assert.equal(calls,enabled?1:0);assert.equal(value,'<img src="//cdn.test/x.svg">');
+    }
+  }
+});
+test('the six actual guarded title rules execute without global TT and preserve Chinese/fallback gates',()=>{
+  const fields=[['https://carnegie.ru/','ruleToc','chapterName'],['https://mid.ru','ruleExplore','name'],
+    ['https://mid.ru','ruleToc','chapterName'],['http://sage.cnpereading.com/','ruleExplore','name'],
+    ['http://sage.cnpereading.com/','ruleToc','chapterName'],['https://www.productplan.com','ruleExplore','name']];
+  for(const [id,rule,field]of fields){
+    const source=sources.find(s=>s.bookSourceUrl===id),value=source[rule][field];
+    const code=value.startsWith('@js:')?value.slice(4):value.match(/<js>([\s\S]*?)<\/js>/)[1];
+    assert(!code.includes('typeof TT'),id+' '+rule+'.'+field);
+    for(const input of ['Guard title','中文标题','']){
+      let calls=0;
+      const context=vm.createContext({result:input,java:{},cache:{},book:{name:'中文测试书'},common:()=>({TT:v=>{calls++;return 'translated:'+v;}})});
+      assert.equal(vm.runInContext('typeof TT',context),'undefined');
+      const result=vm.runInContext(code,context),expected=input&&!(id==='https://mid.ru'&&input==='中文标题')?1:0;
+      assert.equal(calls,expected,id+' '+rule+'.'+field+' '+input);
+      assert.equal(result,expected?'translated:'+input:input||(id==='https://mid.ru'&&rule==='ruleExplore'?'中文测试书':''));
+    }
+    if(id==='https://mid.ru'&&rule==='ruleExplore')assert.equal(vm.runInNewContext(code,{result:'',book:null,java:{},cache:{},common:()=>({TT:v=>'translated:'+v})}),'translated:МИД России');
+  }
+});
+test('all 108 converted sources have no remaining global availability checks for moved APIs',()=>{
+  const names=new Set(['TT','TJ','TC','TH','ltPrepareImages','ltExtract','ltUseHtmlBlocks']),found=[];
+  function scan(obj,source,path=''){
+    for(const [key,value]of Object.entries(obj)){
+      const field=path?path+'.'+key:key;
+      if(value&&typeof value==='object'){scan(value,source,field);continue;}
+      if(typeof value!=='string')continue;
+      let programs=[];
+      if(key==='jsLib')programs=[stripCommon(value)];
+      else if(value.startsWith('@js:'))programs=[value.slice(4)];
+      else if(key==='loginUrl'&&value&&!/^https?:\/\//i.test(value))programs=[value];
+      else if(key==='webJs'||key==='loginCheckJs')programs=[value];
+      else programs=[...value.matchAll(/<js>([\s\S]*?)<\/js>/gi)].map(m=>m[1]);
+      for(const code of programs)m.walk(m.parse(code),node=>{if(node.type==='UnaryExpression'&&node.operator==='typeof'&&node.argument.type==='Identifier'&&names.has(node.argument.name))found.push({source,field,helper:node.argument.name});});
+    }
+  }
+  for(const source of sources)scan(source,source.bookSourceName);
+  assert.deepEqual(found,[]);
 });
 test('ternary checks for moved common helpers call the API and expose load errors',()=>{
   const code='result=typeof ltUseHtmlBlocks==="function"?ltUseHtmlBlocks(result,java,baseUrl):result;result;';

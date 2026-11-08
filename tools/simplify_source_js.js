@@ -218,6 +218,47 @@ function targetLangInit(n){
 }
 function bodyString(arg) {return {type:'CallExpression',callee:id('String'),arguments:[{type:'CallExpression',callee:{type:'MemberExpression',object:arg,property:id('body'),computed:false,optional:false},arguments:[],optional:false}],optional:false};}
 function commonCall(n,name) {return memberCall(n,name)&&isCall(n.callee.object,'common');}
+function availableApi(n) {
+  if(n?.type!=='BinaryExpression'||!['==','==='].includes(n.operator))return null;
+  const type=n.left.type==='UnaryExpression'?n.left:n.right;
+  const value=type===n.left?n.right:n.left;
+  return type.type==='UnaryExpression'&&type.operator==='typeof'&&type.argument.type==='Identifier'
+    &&APIS.has(type.argument.name)&&value.value==='function'?type.argument.name:null;
+}
+function booleanTest(n) {
+  // Only simplify values used as boolean predicates, never values passed to
+  // a comparison/call. Preserve other operands and their evaluation order.
+  if(n.type==='LogicalExpression') {
+    n.left=booleanTest(n.left);n.right=booleanTest(n.right);
+    if(n.operator==='&&') {
+      if(n.left.type==='Literal'&&n.left.value===true)return n.right;
+      if(n.right.type==='Literal'&&n.right.value===true)return n.left;
+    }
+  } else if(n.type==='UnaryExpression'&&n.operator==='!')n.argument=booleanTest(n.argument);
+  return n;
+}
+function shareAvailability(n,inactiveCommon) {
+  const conditional=n.type==='ConditionalExpression',calls=new Set(),guards=new Set();
+  walk(n.consequent,node=>{
+    for(const name of APIS)if(commonCall(node,name))calls.add(name);
+    // Three existing phone rules guard the image-only replacement with TH.
+    if(commonCall(node,'ltPrepareImages'))calls.add('TH');
+  });
+  walk(n.test,node=>{const name=availableApi(node);if(name&&calls.has(name)&&(!conditional||commonCall(n.consequent,name)))guards.add(name);});
+  if(!guards.size)return n;
+  if(inactiveCommon&&guards.has('TH')) {
+    const e=conditional?null:statementCall(n.consequent),th=conditional?n.consequent:e?.right;
+    if((conditional||e?.type==='AssignmentExpression')&&commonCall(th,'TH')) {
+      const options=clone(th.arguments[3]||{type:'ObjectExpression',properties:[]});
+      options.properties=options.properties.filter(p=>/^image_/.test(p.key.name||p.key.value));
+      const images=call('ltPrepareImages',[th.arguments[0],id('java'),...(options.properties.length?[options]:[])]);
+      if(conditional)n.consequent=images;else e.right=images;
+    } else if(!commonCall(th,'ltPrepareImages'))guards.delete('TH');
+  }
+  if(!guards.size)return n;
+  n.test=booleanTest(transform(n.test,node=>guards.has(availableApi(node))?literal(true):node));
+  return n.test.type==='Literal'&&n.test.value===true?n.consequent:n;
+}
 function shareSix(tree) {
   const owned=new Set(tree.body.filter(n=>n.type==='FunctionDeclaration'&&SIX_HELPERS[n.id.name]===hash(js(n))).map(n=>n.id.name));
   // An edited helper may still call another old helper. Preserve the family.
@@ -434,23 +475,7 @@ function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNa
       }
       return n.finalizer?{...n,handler:null}:n.block;
     }
-    if(['IfStatement','ConditionalExpression'].includes(n.type)&&n.test.type==='BinaryExpression'&&['==','==='].includes(n.test.operator)&&n.test.left.type==='UnaryExpression'&&n.test.left.operator==='typeof'&&APIS.has(n.test.left.argument?.name)&&n.test.right.value==='function'){
-      const conditional=n.type==='ConditionalExpression';
-      if(conditional&&!commonCall(n.consequent,n.test.left.argument.name))return n;
-      if(inactiveCommon&&n.test.left.argument.name==='TH'){
-        const e=conditional?null:statementCall(n.consequent),th=conditional?n.consequent:e?.right;
-        if((conditional||e?.type==='AssignmentExpression')&&commonCall(th,'TH')){
-          const options=clone(th.arguments[3]||{type:'ObjectExpression',properties:[]});
-          options.properties=options.properties.filter(p=>/^image_/.test(p.key.name||p.key.value));
-          const images=call('ltPrepareImages',[th.arguments[0],id('java'),...(options.properties.length?[options]:[])]);
-          if(conditional)return images;
-          e.right=images;
-          return n.consequent;
-        }
-        return n;
-      }
-      return n.consequent;
-    }
+    if(['IfStatement','ConditionalExpression'].includes(n.type))return shareAvailability(n,inactiveCommon);
     if(n.type==='CallExpression'&&APIS.has(n.callee?.name)) {
       const name=n.callee.name;
       if(name==='TH') {

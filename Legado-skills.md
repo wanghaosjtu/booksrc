@@ -550,6 +550,8 @@ https://raw.githubusercontent.com/wanghaosjtu/booksrc/47c94d927ecbefbea6c3f828ec
 - 首次加载需联网，失败不静默退回旧库。若 ajax/eval 很快而 importScript/cache.get 挂住，用只读线程投影确认 CacheManager 锁；不要添加掩盖故障的回退。
 - `importScript` 按 URL 缓存下载文件，和原生 `jsLib` 的 ACache 不是同一份缓存；升级要发布新 commit 并更换固定 URL，不依赖移动分支覆盖缓存。
 
+移动 TT/TH 等全局函数后，`result && typeof TT === "function"` 同样会恒为假。迁移器只对已有公共调用的正向可用性判断移除旧检查，保留空值/中文/开关等业务条件及求值顺序；处于比较/函数参数中的逻辑表达式不能仅按真值简化。旧 `TH` 判断包住已替换的 `ltPrepareImages` 时也必须移除，但仍保持中文源只处理图片。全量 AST 检查应覆盖 canonical 与最新手机候选，不能仅靠语法编译或检查独立 if/三元分支。
+
 `ruleContent.webJs` / URL 选项的 webJs 是普通浏览器环境，不注入 Rhino 的 `java`。33 个已审计的大脚本现用两行浏览器加载器：同步 CORS XMLHttpRequest 读取同一固定 SHA，成功 eval 后缓存 API，再调用 `webClean(document,options)`。HTTP 非 200、脚本/DOM 错误不静默回退。不要再次写 `java.importScript`；只有 `<webjs>` 正文规则的另一条 `isRule=true` 路径有 Java bridge。实际站点的 CSP/connect-src/unsafe-eval、网络和 Android WebView 可用性仍须验收；浏览器本地测试不能代替手机结果。
 
 PMA search 的已审计 `auto_clean_up` 保留手动入口，但不再内联 43 KB Readability；浏览器加载器后调用 `window.legadoCommon.browserReadable(document,true)`，再更新 body。`true` 保留原 JS 精简后的严格异常和 module.exports 行为；普通 webClean 仍保留第三方 Readability 对畸形页面属性的兼容处理。只匹配原始/精简后完整 AST 指纹及本次生成的完整委托函数；用户编辑过的 helper 不猜测替换。

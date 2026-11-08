@@ -124,3 +124,13 @@ PMA jsLib 从 45,532 降至 2,419 bytes；全部 108 源当前总对象量 502,8
 最新完整 109 原源备份与 108 候选在 `source-js-simplification-20261108-local-v3-readable1/`，含已生成的 IEEE/Nature/求是三源 priority 候选及公共发布逐字节验证；替代 run1/run2，旧候选不能部署。独立保全检查 3299 项，108 源身份/启用/类型/登录变量/非 JS 字段保全，canonical 与 phone candidates 重建均幂等。当前只有 IEEE 正文及七猫分类数据超过 10 KB，不含嵌套 Readability 副本。Native 期限证据在 `source-js-simplification-20261108-local-v3-native-window1/`，新 SHA 短样本在 `source-js-simplification-20261108-local-v3-readable-smoke1/`；没有创建书籍或部署 canonical，两个短源已分别 cleanup 并完整回读验证原 109 源不变。恢复后仍需先核对用户是否修改源，有变化则新建备份/候选，不复用 --write。
 
 email-followup 仍按已有 401 预检失败停止，未重复轮询 Outlook、未启动等待/worker、未发请示或结果邮件。Native/三站点/108 源部署未完成，不把公共发布和本地/短样本通过当作目标完成。
+
+## 2026-11-08 收尾：复合可用性判断
+
+全量 AST 审计发现 4 源、6 条规则仍用旧全局 TT 判断包住公共调用，V3 没有该全局函数，因此标题翻译恒被跳过：Carnegie Mosco 的目录名、МИД России 的发现/目录名、Sage 的发现/目录名、productplan.com 的发现名。迁移器现将已匹配公共调用的可用性检查移除，保留 result、中文检查、开关、fallback 和求值顺序。只在布尔条件语境化简，比较/调用参数中保留原值；未知 helper 或没有对应公共调用的检查不猜测删除。
+
+新手机候选独立审计又覆盖了三个旧 TH 判断包图片 helper 的规则：全球化智库(CCG)、中国社会科学网、CNKI。它们仍只调用 ltPrepareImages，不新增翻译或 HTML。canonical 相对 `b4eeae9` 仅上述 4 源的 6 个标题字段改变，其他字段与 common SHA 不变；当前总对象量 502,711 bytes，相对原始减少约 **89.99%**。
+
+最新验证：**105 tests，0 fail/skip**；实际 Rhino/Jsoup/Kotlin/Formatter/NetworkUtils **1530 checks、969 段脚本编译**，新增六条真实标题规则的执行而非仅编译，验证无全局 TT 时调用公共入口、中文/空值/fallback 以及结果。108 源 validator 和 4 项同步回归通过；canonical 与 108 phone candidates 的旧 API 全局可用性检查均为 0，候选 3299 项保全与重建幂等通过。没有将模拟翻译返回值当作外部翻译服务/真实站点成功。
+
+最新完整备份/108 候选及 IEEE/Nature/求是 priority 文件在 `source-js-simplification-20261108-local-v3-availability2/`；公共库仍固定 `47c94d9…`，未重新发布。`availability1` 是中间候选，存在三个图片 helper 的旧检查，不可部署；readable1、run1/run2 也已过时。此次只读取手机，未新增源/书、未覆盖现有源；原 109 源完整备份/revision 核对通过。Native 最后实际无库/本机 HTTP 对照仍是 60 秒原生期限到期，且 HTTP 可用不能替代 Native 恢复证据。需要本人恢复 App 后才能验收三站点与全量部署。

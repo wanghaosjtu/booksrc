@@ -217,6 +217,25 @@ public final class SharedCommonRuntime {
                 String field=String.valueOf(one.eval("scripts["+n+"].field"));
                 try{compile.invoke(one.context,code,"source-"+i+"-"+field,1,null);compiledScripts++;check(true,"source "+i+" "+field+" actual Rhino compilation");}
                 catch(InvocationTargetException error){throw new AssertionError("source "+i+" "+field+" syntax failed",error.getCause());}
+                boolean guardedTitle = id.equals("https://carnegie.ru/") && field.equals("source.ruleToc.chapterName")
+                    || id.equals("https://mid.ru") && (field.equals("source.ruleExplore.name") || field.equals("source.ruleToc.chapterName"))
+                    || id.equals("http://sage.cnpereading.com/") && (field.equals("source.ruleExplore.name") || field.equals("source.ruleToc.chapterName"))
+                    || id.equals("https://www.productplan.com") && field.equals("source.ruleExplore.name");
+                if(guardedTitle){
+                    check(Boolean.TRUE.equals(one.eval("typeof TT==='undefined'")),id+" title regression has no global TT");
+                    one.bind("__guardCode",code);
+                    one.eval("var savedGuardTT=commonJs.TT;commonJs.TT=function(v){guardTitleCalls++;return 'translated:'+v;};");
+                    for(String input:new String[]{"Guard title","中文标题",""}){
+                        one.bind("__guardInput",input);
+                        String value=String.valueOf(one.eval("var guardTitleCalls=0;var result=String(__guardInput);var book={name:'中文测试书'};eval(String(__guardCode));"));
+                        int expected=!input.isEmpty()&&!(id.equals("https://mid.ru")&&input.equals("中文标题"))?1:0;
+                        check(((Number)one.eval("guardTitleCalls")).intValue()==expected,id+" "+field+" real Rhino translation gate");
+                        String expectedValue=expected==1?"translated:"+input:input;
+                        if(input.isEmpty()&&id.equals("https://mid.ru")&&field.equals("source.ruleExplore.name"))expectedValue="中文测试书";
+                        check(value.equals(expectedValue),id+" "+field+" real Rhino title result");
+                    }
+                    one.eval("commonJs.TT=savedGuardTT;");
+                }
             }
         }
     }

@@ -600,7 +600,7 @@
     },
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\nul.clean-list.list-spaced--more > li.clearfix||div.commentary-landing div.push-down",
-      "chapterName": "h4 a@text||h2 a@text\n<js>\nif (result && typeof TT === \"function\") result = common(java).TT(result, java, cache);\nresult;\n</js>",
+      "chapterName": "h4 a@text||h2 a@text\n<js>\nif (result) result = common(java).TT(result, java, cache);\nresult;\n</js>",
       "chapterUrl": "h4 a@href||h2 a@href\n<js>\nresult = (function (raw, url) {\n  return common(java).resolveRequest(raw, url).replace(/^https:\\/\\/carnegie\\.ru/i, 'http://carnegie.ru');\n})(result, String(typeof baseUrl === \"undefined\" ? \"\" : baseUrl));\nresult;\n</js>",
       "nextTocUrl": "<js>\nresult = (function carnegieNext(raw, url) {\n  var d = org.jsoup.Jsoup.parse(String(raw || ''), url);\n  var a = d.select('a.page-links__next[href]').first();\n  var m = url.match(/[?&](?:pageOn|page|p)=(\\d+)/i);\n  if (!a || m && parseInt(m[1], 10) >= 10) return '';\n  var next = common(java).resolveRequest(a.attr('href'), url).replace(/^https:\\/\\/carnegie\\.ru/i, 'http://carnegie.ru');\n  return next && next !== url ? next : '';\n})(result, String(typeof baseUrl === \"undefined\" ? \"\" : baseUrl));\nresult;\n</js>",
       "updateTime": "ul@text&&p@text"
@@ -1313,7 +1313,7 @@
       "coverUrl": "@js:'https://mid.ru/static/i/logo.png';",
       "intro": "@js:'';",
       "kind": "@js:'Правительство';",
-      "name": "@js:if (!result || !String(result).trim()) result = book ? book.name : \"МИД России\";\nif (result && !(/[\\u3400-\\u9fff]/).test(String(result)) && typeof TT === \"function\") result = common(java).TT(result, java, cache);\nresult;"
+      "name": "@js:if (!result || !String(result).trim()) result = book ? book.name : \"МИД России\";\nif (result && !(/[\\u3400-\\u9fff]/).test(String(result))) result = common(java).TT(result, java, cache);\nresult;"
     },
     "ruleSearch": {
       "author": "@js:'МИД России';",
@@ -1327,7 +1327,7 @@
     },
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\nli.announce__item:has(a.announce__link_fix_ru[href])",
-      "chapterName": "a.announce__link_fix_ru@text\n<js>\nif (result && !(/[\\u3400-\\u9fff]/).test(String(result)) && typeof TT === \"function\") result = common(java).TT(result, java, cache);\nresult;\n</js>",
+      "chapterName": "a.announce__link_fix_ru@text\n<js>\nif (result && !(/[\\u3400-\\u9fff]/).test(String(result))) result = common(java).TT(result, java, cache);\nresult;\n</js>",
       "chapterUrl": "a.announce__link_fix_ru@href\n<js>\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://mid.ru' + url;\nurl;\n</js>",
       "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\".pager a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = String(a.text()).toLowerCase();\n  if (t.indexOf(\"вперед\") >= 0 || t.indexOf(\"next\") >= 0) {\n    u = String(a.attr(\"href\"));\n    break;\n  }\n}\nif (u && u.indexOf(\"http\") !== 0) u = \"https://mid.ru\" + u;\nresult = u;\n</js>",
       "updateTime": "span.announce__date@text"
@@ -3413,7 +3413,7 @@
       "bookList": "<js>\nvar html = String(result || '');\nvar tla = String(baseUrl || '').split('/loi/')[1] || '';\ntla = tla.split(/[/?#]/)[0];\nvar json = html.replace(/\\\\\"/g, '\"');\nvar items = [];\nvar re = /\"year\":\"(\\d{4})\",\"issues\":\\[([\\s\\S]*?)\\]\\}/g;\nvar hit;\nwhile ((hit = re.exec(json)) !== null) {\n  var iss = /\"volume\":\"(\\d+)\",\"issue\":\"(\\d+)\",\"suppl\":\"[^\"]*\",\"month\":\"(\\d+)\",\"day\":\"[^\"]*\",\"fpage\":\"[^\"]*\",\"lpage\":\"[^\"]*\",\"sortIndex\":\"[^\"]*\",\"cover\":\"([^\"]*)\"/g;\n  var one;\n  while ((one = iss.exec(hit[2])) !== null) {\n    var cover = one[4] ? 'https://sage.cnpereading.com' + one[4] : '';\n    items.push({\n      year: hit[1],\n      vol: one[1],\n      num: one[2],\n      cover: cover\n    });\n  }\n}\nitems.sort(function (a, b) {\n  return parseInt(b.vol, 10) - parseInt(a.vol, 10) || parseInt(b.num, 10) - parseInt(a.num, 10);\n});\nvar out = '';\nfor (var i = 0; i < items.length; i++) {\n  var it = items[i];\n  out += '<a data-id=\"loi-issue-link\" data-cover=\"' + it.cover + '\" href=\"/toc/' + tla + '/' + it.vol + '/' + it.num + '?from=loi\">Volume ' + it.vol + ', Issue ' + it.num + ', ' + it.year + '</a>';\n}\nout;\n</js>\n@css:a[data-id=\"loi-issue-link\"]",
       "bookUrl": "@href",
       "coverUrl": "@css:a[data-id=\"loi-issue-link\"]@data-cover",
-      "name": "@text\n<js>\nif (result && typeof TT === \"function\") result = common(java).TT(result, java, cache);\nresult;\n</js>"
+      "name": "@text\n<js>\nif (result) result = common(java).TT(result, java, cache);\nresult;\n</js>"
     },
     "ruleSearch": {
       "bookList": "@js:[result];",
@@ -3423,7 +3423,7 @@
     },
     "ruleToc": {
       "chapterList": "-\narticle.journal-detail__article--card",
-      "chapterName": "h3 a@text\n<js>\nif (result && typeof TT === \"function\") result = common(java).TT(result, java, cache);\nresult;\n</js>",
+      "chapterName": "h3 a@text\n<js>\nif (result) result = common(java).TT(result, java, cache);\nresult;\n</js>",
       "chapterUrl": "h3 a@href",
       "isVip": "span[aria-label=\"Access type: Restricted access\"]@text\n@js:if(result){true}else{false}"
     },
@@ -3730,7 +3730,7 @@
       "coverUrl": "img@src||@js:\"\"",
       "intro": ".plain-text@text||.eyebrow@text||@js:\"ProductPlan resources\"",
       "kind": "\"产品与创业\"",
-      "name": "a@text\n<js>\nif (result && typeof TT === \"function\") result = common(java).TT(result, java, cache);\nresult;\n</js>"
+      "name": "a@text\n<js>\nif (result) result = common(java).TT(result, java, cache);\nresult;\n</js>"
     },
     "ruleSearch": {
       "bookUrl": "{{@XPath:/a/@href}}publications/",
