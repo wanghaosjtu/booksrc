@@ -9,7 +9,7 @@ const {spawnSync} = require('node:child_process');
 const {stripCommon, configuredLib, loader, build} = require('../migrate_shared_common');
 const {simplifySource,runtimeData} = require('../simplify_source_js');
 const {ROOT, IEEE, IDS, hash, readAllSources, saveWithReadback} = require('../shared_common_phone');
-const {build: buildSmoke} = require('../shared_common_smoke');
+const {build: buildSmoke,browserRequest} = require('../shared_common_smoke');
 const runtime = fs.readFileSync(path.join(ROOT, 'booksource/runtime/legado-shared-runtime.js'), 'utf8');
 const legacy = fs.readFileSync(path.join(ROOT, 'booksource/runtime/legado-translation-runtime.js'), 'utf8');
 const COMMIT = '0123456789abcdef0123456789abcdef01234567';
@@ -46,6 +46,17 @@ test('phone smoke safely embeds TeX and keeps a no-load control branch', () => {
   assert(source.ruleContent.content.includes("select('usehtml img').size()===0"));
   assert.equal(source.header,'{}');
   assert(key.startsWith('--http://127.0.0.1:1122/'));
+});
+test('native browser probe uses real URL webView/webJs and reports browser errors without a nested Java call',()=>{
+  for(const control of [true,false]){
+    const key=browserRequest(COMMIT,control),options=JSON.parse(key.slice(key.indexOf(',')+1));
+    assert.equal(options.webView,true);
+    assert(!options.bodyJs);
+    assert(!options.webJs.includes('java.webView')&&!options.webJs.includes('java.importScript'));
+    assert(options.webJs.includes('COMMON-CONTROL-WEBVIEW'));
+    assert.equal(options.webJs.includes('XMLHttpRequest'),!control);
+    new vm.Script(options.webJs);
+  }
 });
 
 test('jsLib initializes without java and only first successful call loads common', () => {

@@ -11,6 +11,8 @@ description: 为指定网站生成 Legado 阅读 App 的书源 JSON。支持俄�
 
 公共入口均为 `common(java).方法(...)`：TT 翻译单值/数组并缓存、分批和最多四路并发；TJ 翻译 JSON 并跳过 URL/ID；TC 只翻译文本节点；TH 统一移除、提取、图片、公式和可选 Readability。`ltExtract(htmlOrDoc,java,selectors)` 对 usehtml 解包 DOM，普通选择器（如 TeX）仍提取文字；`ltPrepareImages(htmlOrDoc,java,options)` 只处理图片。网络 I/O/服务无效响应保留原文；选择器、类型、JSON/脚本错误必须抛出，不加宽泛 catch，不伪造空目录。
 
+共享 TH 不等于开启富文本。2026-11-08 核对 108 个正式源，只有 IEEE 的正文显式调用 `ltUseHtmlBlocks`（默认 HTML，可切 TEXT）；Science、Nature、求是和 ScienceDirect 均未开启。原机还有一个旧的独立 HTML 验证源，不计入正式源。Science 的 TH 返回裸 HTML，随后原生 Formatter 删除标题标签；不能把这当作公共库加载失败，或未获要求就批量改变所有源的默认格式。需要标题层级时，正文 TH 之后显式调用 `common(java).ltUseHtmlBlocks(result,java)`，并开启 App「适配特殊样式」；旧正文缓存不会自动重写。
+
 `serviceJson(response,java)` 只解码外部服务的 JSON：无效 JSON 返回 null 并记录不含原文的诊断；转换输入前的程序异常仍抛出。缓存和本地规则数据继续用 JSON.parse，不能用此方法掩盖坏缓存。IEEE 的网络 catch 不再豁免所有 SyntaxError，只有这一步外部解码允许回退。
 
 只保留被引用的内联设置，不再生成五个未使用变量；TH 配置明确传入，不能从隐藏 factory 读取。canonical 额外元数据仅供统计，Android 导入会丢弃它们。JSON 目录一次 TJ，HTML 目录一次 TH 后再选择节点。保留 IEEE/Springer CodeCogs、ScienceDirect/Sage MathML/WIRIS 和 WAF/签名等站点逻辑；不要重复 Rhino 正文翻译与 WebView 整页翻译，WebView 只用公共 webClean 清理 DOM/Readability。
@@ -548,6 +550,8 @@ https://raw.githubusercontent.com/wanghaosjtu/booksrc/0fa34494c322b71172bd5e11f1
 - 首次加载需联网，失败不静默退回旧库。若 ajax/eval 很快而 importScript/cache.get 挂住，用只读线程投影确认 CacheManager 锁；不要添加掩盖故障的回退。
 - `importScript` 按 URL 缓存下载文件，和原生 `jsLib` 的 ACache 不是同一份缓存；升级要发布新 commit 并更换固定 URL，不依赖移动分支覆盖缓存。
 
+`ruleContent.webJs` / URL 选项的 webJs 是普通浏览器环境，不注入 Rhino 的 `java`。33 个已审计的大脚本现用两行浏览器加载器：同步 CORS XMLHttpRequest 读取同一固定 SHA，成功 eval 后缓存 API，再调用 `webClean(document,options)`。HTTP 非 200、脚本/DOM 错误不静默回退。不要再次写 `java.importScript`；只有 `<webjs>` 正文规则的另一条 `isRule=true` 路径有 Java bridge。实际站点的 CSP/connect-src/unsafe-eval、网络和 Android WebView 可用性仍须验收；浏览器本地测试不能代替手机结果。
+
 ### 8.3 IEEE HTML 与 SVG 规则
 
 IEEE 保持默认 HTML，并尊重显式 TEXT；只包装不含图片的 h1–h6/blockquote，公式留在原位置，不整篇包装/拆行/转 PNG。调用为 `common(java).ltUseHtmlBlocks(html,java,options)`，不再传 pageUrl，不生成嵌套包装。
@@ -595,7 +599,9 @@ python3 tools/test_runtime_only_sync.py
 python3 tools/validate_translation_sources.py
 ```
 
-真实引擎测试还需配置 `USEHTML_JAVA_HOME`、`USEHTML_ENGINE_JAR`、`USEHTML_JSOUP_JAR`、`USEHTML_KOTLIN_LIB` 和 `USEHTML_IEEE_CAPTURE`；未配置或测试 skipped 不代表已通过 Android 验收。
+真实引擎测试还需配置 `USEHTML_JAVA_HOME`、`USEHTML_ENGINE_JAR`、`USEHTML_JSOUP_JAR`、`USEHTML_KOTLIN_LIB` 和 `USEHTML_IEEE_CAPTURE`；真实浏览器回归配置 `USEHTML_CHROME_BIN` 指向已验证的 Chrome 可执行文件，使用新临时 profile 和两端口 CORS 测试服务器，不借用登录会话。未配置或测试 skipped 不代表已通过 Android 验收。
+
+`shared_common_smoke.js webview` 通过真实 URL `webView:true` / `webJs` 路径访问手机自身的健康端点，只替换这次独立页面的 DOM，并读取固定 SHA 公共库；错误以失败 metrics 返回，不冒充可读正文。`diagnostic ... webview-control` 不加载库、不访问外网。不要用 AnalyzeUrl bodyJs 内嵌的阻塞 `java.webView` 调用作为该生产路径的验收。2026-11-08 原机 importScript/缓存/SVG 已通过，但上述最小 Native URL WebView 对照仍超时；备用机旧 CacheManager 锁未解，不向它重复追加需缓存的探测。未通过前不批量部署。
 
 先用 `tools/shared_common_smoke.js` 建立新版本的独立短样本，覆盖真实 `importScript`、调用者隔离、原始公式编码、图片 `.svg`、图片 URI、HTML 解包和重复处理。优先部署 Nature、求是、IEEE，验证实际规则后继续全部源并全量读回。检查 IEEE `document/9737357` 的 HTML/TEXT、独立缓存重读、图片渲染；WAF、认证、服务超时单独记录为 BLOCKED，不算网站全流程通过。测试结束用 `cleanup` 只删除本次拥有且未被用户修改的短源/测试书，保留旧验证源、原书和原缓存。
 

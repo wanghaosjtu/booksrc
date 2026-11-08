@@ -1,6 +1,6 @@
 # 书源 JS 精简与 common v3
 
-2026-11-07，基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。
+2026-11-07 创建，2026-11-08 续验；基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。最新补修、HTML 使用统计和实机状态见文末 2026-11-08 节。
 
 首版实现已 check in 为 `b75c199`（`Simplify all source JS with shared common v3`）；随后补充了 IEEE 异常边界审计，当前源使用下面的新公共 SHA。工作分支未推送。
 
@@ -20,7 +20,7 @@
 
 ## 体积与保全
 
-按各源 JSON 对象序列化计，总量从 5,020,914 降至 540,859 bytes（约减少 89.2%）。字段 UTF-8 字节数：
+2026-11-07 版按各源 JSON 对象序列化计，总量从 5,020,914 降至 540,859 bytes（约减少 89.2%）。字段 UTF-8 字节数：
 
 | 字段 | 原值 | 新值 |
 | --- | ---: | ---: |
@@ -33,7 +33,7 @@
 
 33 个大 webJs 已移除重复库。108 个身份/顺序、启用与类型、非 JS 字段保留；burl、datestr、移动阅读 bookSourceComment 中的真实 DES 代码保留。两处既有代码错误定向修复：Russtrat 封面全角括号/错误 DOM 操作，移动阅读 getSource 中零宽字符。网站封面/登录/权限未因此自动算验收通过。
 
-## 本地验证
+## 初版本地验证（2026-11-07）
 
 - `node --test tools/tests/*_test.js`：90 tests，通过，0 skipped。
 - 真实 HtmlUnit Rhino fork + Jsoup + Kotlin RuleAnalyzer：1488 checks，通过；108 库惰性初始化，969 段规则/UI action 实际编译。
@@ -65,3 +65,46 @@ service-json 阶段再核对一次：线程投影 596 ms，仍为同一持锁线
 按阻塞处理要求读取并尝试 `email-followup` 技能预检。Python 3.12.3 及原生等待工具可用，但现有 Outlook 配置的只读 doctor 返回 HTTP 401，临时关闭代理的检查也返回 401。邮件流程未通过预检，因此没有发请示/结果邮件、没有启动原生等待或邮件查询 worker、没有修改认证/全局配置。需要本人在 console 告知已重开 App（可强行停止后重开，无需清理数据），或恢复 localhost 的 1122/1123 后继续验收。
 
 本次私有目录：`booksource/.usehtml-validation-phone/source-js-simplification-20261107-v1/`（原机备份/108 候选）和 `source-js-simplification-20261107-10-92-smoke-v3/`（备用机备份/独立样本/诊断）。正文缓存/完整 EPUB/MOBI 不属于本轮修改；旧 EPUB/calibre 证据不作为 v3 新实机通过证据。
+
+## 2026-11-08：缓存恢复、补修与 HTML 使用审计
+
+两台设备的 HTTP 重新检查均为 200。localhost 完整读取 109 个原源，revision 前后稳定，108 个目标齐全；线程投影无 CacheManager 入口阻塞。正式 `common(java)` importScript 短样本 1,332 ms 完成，v3、调用者隔离、原始 TeX/规则解析、SVG 别名、相对图片 URI、usehtml 解包/重复处理、UI/设置和原始异常边界均通过。
+
+原机独立 HTML 书正文 765 字符，缓存重读完全一致，原生 Formatter 正确解析 `//`、相对目录和根路径图片；显式 TEXT 书无 usehtml/标题标签，保留 SVG 别名并重读一致。公式经原生图片端点返回 HTTP 200 PNG，640×101、9,919 bytes，SHA-256 `bda592759551dc6fb5e6a35b91cdaba4c6ac6b5767aa2a56600beab9b2f7f68b`。这证明 SVG 请求选项/渲染路径，不把 PNG 接口输出误称为 SVG 缓存或新 EPUB 导出。
+
+本轮发现并补修两处实现遗漏：
+
+- IEEE 正文仍保留 `typeof ltUseHtmlBlocks === "function"` 三元判断，函数移到 common 后全局名不存在，会跳过包装。迁移器现移除已匹配公共调用的三元判断；实际 IEEE render 尾段回归验证默认 HTML、显式 HTML/TEXT，保留加载异常。无旧 runtime 的可选 TH 三元分支仍只接图片处理，未知函数/附加条件不按名称猜测删除。
+- 33 个普通 URL WebView 的 webJs 原来调用 `java.importScript`，而该路径没有 Java bridge。现改为浏览器自身 CORS GET 固定 SHA、eval/cache API，再调用 webClean，仍为两行。只替换完整已审计程序，站点选项保留；附加的用户代码不猜测改写。HTTP 非 200、CORS、DOM 选择器错误不伪造成功。
+
+相对 `9c0abca`，canonical 只改 34 个源：33 个 `ruleContent.webJs` 和 IEEE 的一个 `ruleContent.content`，其他字段、身份、顺序和启用状态保持。当前总对象量 547,722 bytes，相对原始 5,020,914 bytes 减少 89.09%；额外体积是明确的浏览器加载步骤，不再复制大库。公共 runtime 文件和固定 SHA `0fa34494c322b71172bd5e11f1897a570c319364` 未改，没有新发布/推工作分支。
+
+最新回归：97 tests 全部通过、0 skipped；1488 个实际 Rhino/Jsoup/Kotlin RuleAnalyzer/原生 Formatter/NetworkUtils 检查，969 段规则/UI action 编译；4 个同步回归及 108 源 validator 通过。新增隔离真实 Chrome 测试使用逐字相同的本地公共库和两个 HTTP 端口，验证真实 CORS、无 Java bridge、API 重用、Readability/标题/原文保留，以及 HTTP 403、无 CORS、无效 DOM 选择器的失败边界。它不证明 Git 网络或手机 Native WebView 已通过。
+
+### usehtml 到底有多少源
+
+这是正文规则配置统计，不是关键词出现在公共库里的次数，也不是所有书籍缓存的实际模式。全部 108 个 canonical/手机目标中，只有 **IEEE 1 个**显式调用 HTML 包装；原机 109 个原源中另有旧独立验证源 `Common HTML/SVG 短验证 v1-601e872160a1`，因此含该测试源为 2 个。本轮自建临时样本不计入正式源，已清理。
+
+| 源 | 显式 usehtml | 当前行为 |
+| --- | --- | --- |
+| IEEE | 是 | 默认 HTML，可按书/设置选择 TEXT |
+| Science | 否 | TH 翻译后是裸 HTML，无渲染模式 UI |
+| Nature | 否 | TH 提取/翻译，保留原来的 TEXT 行为 |
+| 求是网 | 否 | 只处理图片，不新增翻译或富文本 |
+| ScienceDirect | 否 | TH/MathML 图片处理，不包装标题 |
+
+Science 已从 localhost 新鲜回读，与本轮完整备份无差异，仍为 v2，未部署本次 v3。它提取 main/article，选择文章体，再 TH；TH/TC 保留中间 DOM 供翻译，但不自动插入 usehtml。BookContent 只暂存 usehtml 片段，随后 `HtmlFormatter.formatKeepImg` 把裸 h1–h6 变成换行并去掉标签，最后仅恢复暂存的包装；TextChapterLayout 也只为 usehtml 调用 `setTypeHtml`。因此当前 Science 不能显示这些标题层级，这不是 common 网络加载失败，也不是本轮简化才引入的问题。
+
+如需改变 Science 的行为，应在正文 TH 后显式调用 `common(java).ltUseHtmlBlocks(result,java)`，保持图片在包装外，并开启 App「适配特殊样式」。共享库可支持这个入口，但没有擅自为 Science/其余 107 个源改变默认格式；旧正文缓存也不会自动变成富文本。
+
+### 剩余实机阻塞与已清理范围
+
+localhost 的 Native WebView 没有返回：嵌套 bodyJs、正文规则 `java.webView` 最小无库对照均超时；收敛到生产用的 URL `webView:true`/`webJs`、仅手机自身 HTTP、无外网/无库对照仍在 25,288 ms 超时。没有取得 browser metrics，不能算通过或把 Chrome 证据替代它。线程投影仍为零缓存入口阻塞，因此不能把原机这个现象继续归因于昨天的缓存锁，具体 WebView 运行原因尚未确认。下一步需要本人将原机阅读强行停止后重开、保持亮屏/前台、重新启用 Web 服务；不要求清理数据。
+
+备用 `10.92.24.102` 完整独立备份/读回 114 个原源不变；只读投影仍为旧线程 7830 持锁等待 ajaxAll、22 个缓存入口阻塞。其 `java.webView` 会隐式读 getLoginHeader/cache，不能作为无缓存/纯浏览器证据；没有再做正式 importScript 或书籍缓存探测。未向备用机部署 canonical，也没有创建测试书；最后删除本轮拥有的短源并全量核对原 114 源不变。
+
+原机两批短源/HTML、TEXT 测试书也已清理，完整回读原 109 源哈希不变，原书身份/来源保全。三个网站本轮仅做公共 curl：Nature 与求是正文 HTTP 200，IEEE 文章页 HTTP 202、空响应；没有把这些或旧实机结果当作三站点新版本规则验收。优先三源和 108 源部署尚未进行。
+
+本轮按 `email-followup` 完整读取技能、定位脚本并验证 Python 3.12.3；只读 doctor 仍返回 **Outlook MCP HTTP 401**。预检不通过即停止邮件流程：没有创建请求 STATE、没有 await_owner/worker、没有请示或结果邮件、没有修改认证/全局配置。需要本人通过 console 恢复手机后继续。
+
+私有证据均在 `booksource/.usehtml-validation-phone/`，目录 700/文件 600：`source-js-simplification-20261108-local-v3-run1/` 是首阶段备份/候选，已被 `source-js-simplification-20261108-local-v3-run2/` 的最新完整备份/108 候选替代，不能再部署 run1。短样本证据为 `source-js-simplification-20261108-local-v3-smoke1/`、`source-js-simplification-20261108-local-v3-web2/` 和 `source-js-simplification-20261108-10-92-web-v3-1/`，均已清理。恢复后先确认手机没有用户新改动；有则新建完整备份/重新生成，不复用旧目录的 --write。

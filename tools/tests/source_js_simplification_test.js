@@ -66,6 +66,32 @@ test('conditional common availability checks do not lose another condition',()=>
   const code='if(typeof TH==="function" && enabled)result=TH(result,java,cache);result;';
   assert(m.simplifyProgram(code,{}).includes('&& enabled'));
 });
+test('ternary checks for moved common helpers call the API and expose load errors',()=>{
+  const code='result=typeof ltUseHtmlBlocks==="function"?ltUseHtmlBlocks(result,java,baseUrl):result;result;';
+  const out=m.simplifyProgram(code,{});
+  assert(!out.includes('typeof ltUseHtmlBlocks')&&!out.includes('baseUrl'));
+  assert.equal(vm.runInNewContext(out,{result:'body',java:{},common:()=>({ltUseHtmlBlocks:v=>'HTML:'+v})}),'HTML:body');
+  const error=new Error('common load failed');
+  assert.throws(()=>vm.runInNewContext(out,{result:'body',java:{},common:()=>{throw error;}}),e=>e===error);
+  const custom='result=typeof customHelper==="function"?customHelper(result):result;result;';
+  assert(m.simplifyProgram(custom,{}).includes('typeof customHelper'));
+});
+test('optional ternary TH without an old runtime still enables only images',()=>{
+  const s=convert({bookSourceName:'Image only',bookSourceUrl:'https://image.test',jsLib:'',ruleContent:{content:'<js>result=typeof TH==="function"?TH(result,java,cache,{remove_selector:["header"]}):result;result;</js>'}});
+  assert(s.ruleContent.content.includes('common(java).ltPrepareImages('));
+  assert(!s.ruleContent.content.includes('.TH(')&&!s.ruleContent.content.includes('typeof TH'));
+});
+test('the actual IEEE render tail defaults to HTML after globals move to common and respects TEXT',()=>{
+  const source=sources.find(s=>s.bookSourceName==='IEEE');
+  const code=source.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1];
+  const tail=code.slice(code.indexOf('var ieeeMode ='));
+  assert(!tail.includes('typeof ltUseHtmlBlocks'));
+  for(const [choice,expected]of [[null,'HTML:body'],['html','HTML:body'],['text','body'],['TEXT','body']]){
+    const scope=vm.createContext({result:'body',java:{get:()=>choice,log(){}},common:()=>({ltUseHtmlBlocks:v=>'HTML:'+v})});
+    assert.equal(vm.runInContext('typeof ltUseHtmlBlocks',scope),'undefined');
+    assert.equal(vm.runInContext(tail,scope),expected);
+  }
+});
 test('unknown functions-only login/check scripts and composed actions remain intact',()=>{
   for(const code of ['function login(){java.put("custom","kept");}','function setTargetLang(){java.ajax("https://example.test");}function login(){setTargetLang();}']){
     const out=m.simplifyLogin(code);assert(out.includes('custom')||out.includes('java.ajax'));
@@ -81,6 +107,38 @@ test('large custom or edited browser programs are retained, not replaced by size
     const code=body+'\n/*'+ 'x'.repeat(11000)+'*/\ndocument.body.outerHTML;';
     assert.equal(m.simplifyWeb(code,{remove_selector:['script']},COMMIT),code);
   }
+});
+function browserScope(body=fs.readFileSync(path.join(ROOT,'booksource/runtime/legado-shared-runtime.js'),'utf8'),status=200){
+  const requests=[];
+  const scope=vm.createContext({window:{},document:{querySelectorAll:()=>[],body:{outerHTML:'<body>article</body>'}},XMLHttpRequest:function(){
+    this.status=status;this.responseText=body;
+    this.open=(...args)=>requests.push(args);this.send=value=>assert.equal(value,null);
+  }});
+  return {scope,requests};
+}
+test('browser common uses CORS HTTP without a Java bridge, caches success, and exposes load failures',()=>{
+  const code=m.browserScript(COMMIT,{remove:['nav']});
+  assert.equal(code.split('\n').length,2);
+  assert(!code.includes('java.importScript'));
+  const {scope,requests}=browserScope();
+  assert.equal(vm.runInContext('typeof java',scope),'undefined');
+  for(let i=0;i<2;i++)assert.equal(vm.runInContext(code,scope),'<body>article</body>');
+  assert.equal(requests.length,1);
+  assert.deepEqual(requests[0],['GET','https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+COMMIT+'/booksource/runtime/legado-shared-runtime.js',false]);
+  for(const [body,status,error]of [['blocked',403,/Common runtime HTTP 403/],['function {',200,/Unexpected/]]){
+    const {scope}=browserScope(body,status);
+    assert.throws(()=>vm.runInContext(code,scope),error);
+    assert.equal(scope.window.legadoCommon,undefined);
+  }
+});
+test('audited browser loaders migrate whole programs, preserve options, and leave custom additions intact',()=>{
+  const options={remove:['nav'],readable:true,title:true};
+  const old='window.legadoCommon = window.legadoCommon || eval(String(java.importScript("https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+COMMIT+'/booksource/runtime/legado-shared-runtime.js")));\nwindow.legadoCommon.webClean(document,'+JSON.stringify(options)+');';
+  const code=m.browserScript(COMMIT,options);
+  assert.equal(m.simplifyWeb(old,{},COMMIT),code);
+  assert.equal(m.simplifyWeb(code,{},COMMIT),code);
+  assert(m.simplifyWeb(old+'\nwindow.customState=42;',{},COMMIT).includes('window.customState = 42'));
+  assert(m.simplifyWeb(code+'\nwindow.customState=42;',{},COMMIT).includes('window.customState = 42'));
 });
 test('empty and strict error catches expose the original error rather than fabricate empty data',()=>{
   for(const [code,options]of [['try{throw new TypeError("real bug");}catch(e){}',{}],['try{throw new TypeError("real bug");}catch(e){result="[]";}',{errorPolicy:'strict'}]]){

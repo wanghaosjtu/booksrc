@@ -428,13 +428,17 @@ function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNa
       }
       return n.finalizer?{...n,handler:null}:n.block;
     }
-    if(n.type==='IfStatement'&&n.test.type==='BinaryExpression'&&['==','==='].includes(n.test.operator)&&n.test.left.type==='UnaryExpression'&&n.test.left.operator==='typeof'&&APIS.has(n.test.left.argument?.name)&&n.test.right.value==='function'){
+    if(['IfStatement','ConditionalExpression'].includes(n.type)&&n.test.type==='BinaryExpression'&&['==','==='].includes(n.test.operator)&&n.test.left.type==='UnaryExpression'&&n.test.left.operator==='typeof'&&APIS.has(n.test.left.argument?.name)&&n.test.right.value==='function'){
+      const conditional=n.type==='ConditionalExpression';
+      if(conditional&&!commonCall(n.consequent,n.test.left.argument.name))return n;
       if(inactiveCommon&&n.test.left.argument.name==='TH'){
-        const e=statementCall(n.consequent),th=e?.right;
-        if(e?.type==='AssignmentExpression'&&commonCall(th,'TH')){
+        const e=conditional?null:statementCall(n.consequent),th=conditional?n.consequent:e?.right;
+        if((conditional||e?.type==='AssignmentExpression')&&commonCall(th,'TH')){
           const options=clone(th.arguments[3]||{type:'ObjectExpression',properties:[]});
           options.properties=options.properties.filter(p=>/^image_/.test(p.key.name||p.key.value));
-          e.right=call('ltPrepareImages',[th.arguments[0],id('java'),...(options.properties.length?[options]:[])]);
+          const images=call('ltPrepareImages',[th.arguments[0],id('java'),...(options.properties.length?[options]:[])]);
+          if(conditional)return images;
+          e.right=images;
           return n.consequent;
         }
         return n;
@@ -534,8 +538,26 @@ function simplifyCheck(text) {
   if(!options)return simplifyProgram(text,{}, {protectedNames:new Set(tree.body.filter(n=>n.type==='FunctionDeclaration').map(n=>n.id.name))});
   return 'common(java).check(result,java,'+JSON.stringify(options)+');';
 }
+function browserScript(commit,options) {
+  assert(/^[0-9a-f]{40}$/.test(commit),'full immutable common SHA required');
+  const url='https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+commit+'/booksource/runtime/legado-shared-runtime.js';
+  // URL webJs has no Java bridge. A plain CORS GET also works in rule WebViews.
+  return 'if (!window.legadoCommon) { var commonRequest = new XMLHttpRequest(); commonRequest.open("GET",'+JSON.stringify(url)+',false); commonRequest.send(null); if (commonRequest.status !== 200) throw new Error("Common runtime HTTP " + commonRequest.status); window.legadoCommon = eval(commonRequest.responseText); }\n'
+    +'window.legadoCommon.webClean(document,'+JSON.stringify(options)+');';
+}
+function sharedWebOptions(text) {
+  const commit=text.match(/https:\/\/raw\.githubusercontent\.com\/wanghaosjtu\/booksrc\/([0-9a-f]{40})\/booksource\/runtime\/legado-shared-runtime\.js/)?.[1];
+  if(!commit)return null;
+  const tree=parse(text),last=tree.body[tree.body.length-1]?.expression;
+  if(!memberCall(last,'webClean')||js(last.callee.object)!=='window.legadoCommon'||last.arguments.length!==2||last.arguments[0].name!=='document')return null;
+  let options;
+  try {options=data(last.arguments[1]);} catch {return null;}
+  const old='window.legadoCommon = window.legadoCommon || eval(String(java.importScript('+JSON.stringify('https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+commit+'/booksource/runtime/legado-shared-runtime.js')+')));\nwindow.legadoCommon.webClean(document,'+JSON.stringify(options)+');';
+  return [old,browserScript(commit,options)].some(code=>js(parse(code))===js(tree))?options:null;
+}
 function simplifyWeb(text,globals,commit) {
-  if(/^window\.legadoCommon = window\.legadoCommon \|\| eval/.test(text))return text.replace(/\/booksrc\/[0-9a-f]{40}\/booksource\/runtime\/legado-shared-runtime\.js/,'/booksrc/'+commit+'/booksource/runtime/legado-shared-runtime.js');
+  const shared=sharedWebOptions(text);
+  if(shared!==null)return browserScript(commit,shared);
   if(text.length<10000)return simplifyProgram(text,globals);
   const tree=parse(text);let remove=globals.remove_selector;
   if(!LEGACY_WEB_PROGRAMS.has(hash(js(tree))))return text;
@@ -547,8 +569,7 @@ function simplifyWeb(text,globals,commit) {
   if(/new Readability\(document/.test(text))options.readable=true;
   if(/'<title>'\s*\+document\.title/.test(text))options.title=true;
   // Legacy Edge whole-page translation is duplicated by every affected source's TH/TC.
-  return 'window.legadoCommon = window.legadoCommon || eval(String(java.importScript('+JSON.stringify('https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+commit+'/booksource/runtime/legado-shared-runtime.js')+')));\n'
-    +'window.legadoCommon.webClean(document,'+JSON.stringify(options)+');';
+  return browserScript(commit,options);
 }
 function simplifySource(source,commit,runtime) {
   const out=clone(source),site=stripCommon(out.jsLib||''),globals=declaredSettings(site);
@@ -654,4 +675,4 @@ function main() {
   console.log(JSON.stringify(report,null,2));
 }
 if(require.main===module)main();
-module.exports={data,parse,js,walk,transform,reads,simplifyProgram,simplifySource,simplifyUi,simplifyLogin,simplifyCheck,simplifyWeb,uiAction,runtimeData,build,main};
+module.exports={data,parse,js,walk,transform,reads,simplifyProgram,simplifySource,simplifyUi,simplifyLogin,simplifyCheck,simplifyWeb,browserScript,uiAction,runtimeData,build,main};

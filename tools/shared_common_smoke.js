@@ -9,6 +9,7 @@ const crypto = require('node:crypto');
 const {createClient, changedPaths, summarizeDebug, errorDetails} = require('./usehtml_http_ws_client');
 const {ROOT, privateDirectory, privateWrite, hash, single, readAllSources,testHost,sameHost} = require('./shared_common_phone');
 const {loader} = require('./migrate_shared_common');
+const {browserScript} = require('./simplify_source_js');
 const HEALTH = 'http://127.0.0.1:1122/getJsSourceApiTokenRequired';
 const VERSION = '3';
 const guard = vm.createContext({});
@@ -203,6 +204,7 @@ async function refresh(dir,capturePath) {
   return {refreshedOwnedSource:true,changes:changedPaths(old,source)};
 }
 async function diagnostic(dir,kind='network') {
+  if(kind==='webview-control')return webView(dir,true);
   dir=privateDirectory(dir);
   const state=JSON.parse(fs.readFileSync(path.join(dir,'smoke-state.json'),'utf8'));
   const url='https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+state.commit+'/booksource/runtime/legado-shared-runtime.js';
@@ -243,25 +245,31 @@ async function diagnostic(dir,kind='network') {
   const match=result.messages.join('\n').match(new RegExp(marker+' (\\{[^\\n]+\\})'));
   return {...summary,metrics:match?JSON.parse(match[1]):null};
 }
-async function webView(dir){
+function browserRequest(commit,control=false){
+  const paragraph='COMMON-WEBVIEW-PARAGRAPH: a native browser prepares the document without translating or discarding the original article text. '.repeat(8);
+  const html='<nav>COMMON-NAVIGATION-NOISE</nav><article class="article-body"><h1>COMMON-WEBVIEW-HEADING</h1><p>'+paragraph+'</p><p>'+paragraph+'</p></article><footer>COMMON-FOOTER-NOISE</footer>';
+  // Exercise the same URL webView/webJs path as production, not a nested
+  // java.webView call. Replace only this owned loopback test page's DOM.
+  const script='(function(){try{document.head.innerHTML='+safeJson('<title>COMMON-WEBVIEW-TITLE</title>')+';document.body.innerHTML='+safeJson(html)+';\n'
+    +(control?'':browserScript(commit,{readable:true,title:true,remove:['script','noscript','style','nav','footer']})+'\n')
+    +'var text=document.body.textContent;var metrics={kind:'+JSON.stringify(control?'native-URL-WebView-no-library-local-http-only':'native-URL-WebView-shared-common')+',javaBridge:typeof java!=="undefined",'
+    +(control?'':'version:String(window.legadoCommon.version),')
+    +'paragraphs:document.querySelectorAll("p").length,title:document.title.indexOf("COMMON-WEBVIEW-TITLE")>=0,readable:text.indexOf("COMMON-WEBVIEW-PARAGRAPH")>=0,noiseRemoved:text.indexOf("COMMON-NAVIGATION-NOISE")<0&&text.indexOf("COMMON-FOOTER-NOISE")<0,noDuplicateTranslation:text.indexOf("a native browser prepares the document")>=0};'
+    +'return "COMMON-CONTROL-WEBVIEW "+JSON.stringify(metrics);'
+    +'}catch(error){return "COMMON-CONTROL-WEBVIEW "+JSON.stringify({kind:"native-URL-WebView-error",error:String(error)});}})()';
+  return '--'+HEALTH+','+safeJson({webView:true,webJs:script,timeout:40000});
+}
+async function webView(dir,control=false){
   dir=privateDirectory(dir);
   const state=JSON.parse(fs.readFileSync(path.join(dir,'smoke-state.json'),'utf8'));
-  const paragraph='COMMON-WEBVIEW-PARAGRAPH: a native browser prepares the document without translating or discarding the original article text. '.repeat(8);
-  const html='<html><head><title>COMMON-WEBVIEW-TITLE</title></head><body><nav>COMMON-NAVIGATION-NOISE</nav><article class="article-body"><h1>COMMON-WEBVIEW-HEADING</h1><p>'+paragraph+'</p><p>'+paragraph+'</p></article><footer>COMMON-FOOTER-NOISE</footer></body></html>';
-  const script='window.legadoCommon = window.legadoCommon || eval(String(java.importScript('+JSON.stringify('https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+state.commit+'/booksource/runtime/legado-shared-runtime.js')+')));\n'
-    +'window.legadoCommon.webClean(document,{readable:true,title:true,remove:["script","noscript","style","nav","footer"]});\n'
-    +'document.body.setAttribute("data-common-version",window.legadoCommon.version);document.body.outerHTML;';
-  const code='(function(){var value=String(java.webView('+safeJson(html)+','+safeJson(HEALTH)+','+safeJson(script)+'));'
-    +'var doc=org.jsoup.Jsoup.parse(value);var text=String(doc.text());'
-    +'var metrics={kind:"native-WebView-shared-common",version:String(doc.body().attr("data-common-version")),paragraphs:doc.select("p").size(),title:text.indexOf("COMMON-WEBVIEW-TITLE")>=0,readable:text.indexOf("COMMON-WEBVIEW-PARAGRAPH")>=0,noiseRemoved:text.indexOf("COMMON-NAVIGATION-NOISE")<0&&text.indexOf("COMMON-FOOTER-NOISE")<0,noDuplicateTranslation:text.indexOf("a native browser prepares the document")>=0};'
-    +'java.log("COMMON-WEBVIEW-METRICS "+JSON.stringify(metrics));return "COMMON-CONTROL-WEBVIEW";})()';
-  const key='--'+HEALTH+','+safeJson({bodyJs:code,timeout:40000});
-  const result=await client(dir).debug(state.id,key,55000);
+  const key=browserRequest(state.commit,control);
+  const result=await client(dir).debug(state.id,key,control?25000:55000);
   privateWrite(dir,'smoke-webview-debug-'+Date.now()+'.json',result);
   const summary=summarizeDebug(result,key);
-  const match=result.messages.join('\n').match(/COMMON-WEBVIEW-METRICS (\{[^\n]+\})/);
+  const match=result.messages.join('\n').match(/COMMON-CONTROL-WEBVIEW (\{[^\n]+\})/);
   const metrics=match?JSON.parse(match[1]):null;
-  const passed=!summary.isError&&metrics&&metrics.version===VERSION&&metrics.paragraphs>=2&&metrics.title&&metrics.readable&&metrics.noiseRemoved&&metrics.noDuplicateTranslation;
+  const passed=!summary.isError&&metrics&&!metrics.error&&!metrics.javaBridge&&metrics.readable
+    &&(control||metrics.version===VERSION&&metrics.paragraphs>=2&&metrics.title&&metrics.noiseRemoved&&metrics.noDuplicateTranslation);
   privateWrite(dir,'smoke-webview-summary-'+Date.now()+'.json',{...summary,metrics,passed:!!passed});
   return {...summary,metrics,passed:!!passed};
 }
@@ -410,5 +418,5 @@ async function main() {
   console.log(JSON.stringify(result,null,2));
   if(result.passed===false)process.exitCode=1;
 }
-module.exports={build,client,safeJson,HEALTH};
+module.exports={build,client,safeJson,browserRequest,HEALTH};
 if(require.main===module)main().catch(error=>{console.error(JSON.stringify(errorDetails(error)));process.exitCode=1;});
