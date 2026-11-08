@@ -22,6 +22,12 @@ const LOGIN_SETTERS = {
   setRenderMode:'e7d1b12858b85779f12f53d2c204194496177f30a209f8a444288367e2813386',
   setTypesenseApiKey:'d92ff2d0bb35d6a6f56b0dba907f66b8fca7e1d70bf9b810d65d687e18092b57'
 };
+// ProductPlan's login UI does not use its variable dumper or language
+// setters; retain only Legado's required submit hook and route it through the
+// common login API. The full normalized AST fingerprint preserves user edits.
+const LEGACY_NOOP_LOGINS = {
+  '29853288df0b6231d456b4237ed085269bb1aa44c75d67616a7ec089eaacb6a0':'function login() { common(java).login(java, {}, {}); }'
+};
 const BODY_HELPERS = {
   cnkiRespBody:'8d2e6b142569666fb4e7209f3a44a8294fc894c492e91a84eff085bd2d6e8370',
   incBody:'8639be60ab659e39e7111964ff5184f2e09a67063ebfcb1be0ce89e5ae207c8a',
@@ -83,6 +89,11 @@ const LEGACY_WEB_PROGRAMS=new Set([
   '00480250ff5c6fb7d3e92460825ec1b84f2526ad4ac1cbfb18011455fd8b23cd',
   'e3e1a87d2d309f92432b4335cf9cab145b2171e86109ae42f8ce20602355684a'
 ]);
+const LEGACY_WEB_CLEAN_PROGRAMS={
+  '09b189e765eac3d49cdd80f142268f0b7e87b56df424b4abae743f8f056d2784':{
+    remove:['script','noscript','style','svg','nav','aside','header','footer','form','button','input','iframe','[hidden]','[aria-hidden="true"]']
+  }
+};
 // Final BookList/BookInfo/BookChapter/pagination output is resolved by the
 // app. Match whole audited programs, never a user's edited prefix helper.
 const FINAL_URL_RULES={
@@ -659,7 +670,9 @@ function simplifyLogin(text) {
   if(!text || /^https?:\/\//i.test(text.trim()))return text;
   if(text.includes('common(java).login('))return text;
   const code=text.replace(/^\s*(?:<js>|@js:)/i,'').replace(/<\/js>\s*$/i,'');
-  const tree=parse(code),names=new Set(tree.body.filter(n=>n.type==='FunctionDeclaration').map(n=>n.id.name));
+  const tree=parse(code),signature=hash(js(tree));
+  if(LEGACY_NOOP_LOGINS[signature])return LEGACY_NOOP_LOGINS[signature];
+  const names=new Set(tree.body.filter(n=>n.type==='FunctionDeclaration').map(n=>n.id.name));
   const options={};
   if(names.has('setTargetLang'))options.language=true;
   if(names.has('setRenderMode'))options.render=true;
@@ -718,6 +731,8 @@ function sharedWebOptions(text) {
 function simplifyWeb(text,globals,commit) {
   const shared=sharedWebOptions(text);
   if(shared!==null)return browserScript(commit,shared);
+  const legacyClean=LEGACY_WEB_CLEAN_PROGRAMS[hash(js(parse(text)))];
+  if(legacyClean)return browserScript(commit,legacyClean);
   if(text.length<10000)return simplifyProgram(text,globals);
   const tree=parse(text);let remove=globals.remove_selector;
   if(!LEGACY_WEB_PROGRAMS.has(hash(js(tree))))return text;

@@ -703,7 +703,7 @@
     "ruleContent": {
       "content": "//body<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: remove_selector,\n  extract_selector: [\".inline-formula\", \"disp-formula\"],\n  readable: true,\n  image_anchor_mode: \"href\"\n});\nresult;\n</js>",
       "imageStyle": "FULL",
-      "webJs": "(function () {\n  var selectors = 'script,noscript,style,svg,nav,aside,header,footer,form,button,input,iframe,[hidden],[aria-hidden=\"true\"]';\n  var nodes = document.querySelectorAll(selectors);\n  for (var i = nodes.length - 1; i >= 0; i--) {\n    var node = nodes[i];\n    if (node && node.parentNode) node.parentNode.removeChild(node);\n  }\n  return document.body ? document.body.outerHTML : document.documentElement.outerHTML;\n})();"
+      "webJs": "if (!window.legadoCommon) { var commonRequest = new XMLHttpRequest(); commonRequest.open(\"GET\",\"https://raw.githubusercontent.com/wanghaosjtu/booksrc/8dc673199dad5e21d78ad74fe8999275ed1427a7/booksource/runtime/legado-shared-runtime.js\",false); commonRequest.send(null); if (commonRequest.status !== 200) throw new Error(\"Common runtime HTTP \" + commonRequest.status); window.legadoCommon = eval(commonRequest.responseText); }\nwindow.legadoCommon.webClean(document,{\"remove\":[\"script\",\"noscript\",\"style\",\"svg\",\"nav\",\"aside\",\"header\",\"footer\",\"form\",\"button\",\"input\",\"iframe\",\"[hidden]\",\"[aria-hidden=\\\"true\\\"]\"]});"
     },
     "ruleExplore": {
       "bookList": "@js:[1];",
@@ -821,7 +821,7 @@
       "author": "meta[name=\"author\"]@content||@js:\"求是网\";"
     },
     "ruleContent": {
-      "content": "//div[@class=\"inner\"]\n<js>\nresult = common(java).ltPrepareImages(result, java, {image_base_url: String(baseUrl || \"\")});\nresult;\n</js>",
+      "content": "//div[@class=\"inner\"]\n<js>\nresult = common(java).ltPrepareImages(result, java, {\n  image_base_url: String(baseUrl || \"\")\n});\nresult;\n</js>",
       "imageStyle": "FULL"
     },
     "ruleExplore": {
@@ -3710,7 +3710,7 @@
     "exploreUrl": "Resources::https://www.productplan.com/",
     "lastUpdateTime": 1792402805501,
     "loginUi": "@js:common(java).loginUi([\n  \"chunkSize\",\n  {\n    \"name\": \"简体中文\",\n    \"type\": \"button\",\n    \"action\": \"(java.put('TARGET_LANG', 'zh-Hans'))\"\n  },\n  {\n    \"name\": \"繁体中文\",\n    \"type\": \"button\",\n    \"action\": \"(java.put('TARGET_LANG', 'yue'))\"\n  },\n  {\n    \"name\": \"文言文\",\n    \"type\": \"button\",\n    \"action\": \"(java.put('TARGET_LANG', 'lzh'))\"\n  },\n  {\n    \"name\": \"在浏览器中打开\",\n    \"type\": \"button\",\n    \"action\": \"common(java).open(java,source,book,'book')\"\n  }\n])",
-    "loginUrl": "function logAllVariables() {\n  java.log(\"Global Variables:\");\n  for (var key in this) {\n    if (this.hasOwnProperty(key)) {\n      java.log(key + \" = \" + this[key]);\n      java.log(key);\n    }\n  }\n  java.log(\"Local Variables:\");\n  try {\n    with ({}) {\n      eval(\"for (var key in this) { if (this.hasOwnProperty(key)) { java.log(key); } }\");\n    }\n  } catch (e) {\n    java.log(\"Error logging local variables: \" + e.message);\n  }\n  var targetLangFromSource = source.getLoginInfoMap().get(\"TARGET_LANG\");\n}\nfunction setzhCHS() {\n  java.put(\"TARGET_LANG\", \"zh-Hans\");\n}\nfunction setlzh() {\n  java.put(\"TARGET_LANG\", \"lzh\");\n}\nfunction login() {}",
+    "loginUrl": "function login() { common(java).login(java, {}, {}); }",
     "respondTime": 180000,
     "ruleBookInfo": {
       "coverUrl": "main a.grid-item img@src||meta[property=\"og:image\"]@content",

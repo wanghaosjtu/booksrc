@@ -297,6 +297,22 @@ test('the actual IEEE render tail defaults to HTML after globals move to common 
     assert.equal(vm.runInContext(tail,scope),expected);
   }
 });
+test('the complete source inventory shares loaders and every eligible login/browser helper',()=>{
+  assert.equal(local.length,108);
+  assert(sources.every(s=>s.jsLib.endsWith(loader(COMMIT))));
+  const loginUi=local.filter(s=>s.loginUi),checks=local.filter(s=>s.loginCheckJs);
+  assert.equal(loginUi.length,38);assert(loginUi.every(s=>sources.find(x=>x.bookSourceUrl===s.bookSourceUrl).loginUi.startsWith('@js:common(java).loginUi(')));
+  assert.equal(checks.length,28);assert(checks.every(s=>sources.find(x=>x.bookSourceUrl===s.bookSourceUrl).loginCheckJs.startsWith('common(java).check(')));
+  const scripts=local.filter(s=>s.loginUrl&&!/^https?:\/\//i.test(s.loginUrl.trim()));
+  assert.equal(local.filter(s=>s.loginUrl).length,49);
+  assert.equal(local.filter(s=>/^https?:\/\//i.test((s.loginUrl||'').trim())).length,13);
+  assert.equal(scripts.length,36);
+  assert.equal(sources.filter(s=>s.loginUrl&&s.loginUrl.includes('common(java).login(')).length,35);
+  assert.equal(sources.find(s=>s.bookSourceName==='PDMA').loginUrl,'{{book.bookUrl}};');
+  const web=local.filter(s=>s.ruleContent?.webJs),shared=sources.filter(s=>String(s.ruleContent?.webJs||'').includes('raw.githubusercontent.com/wanghaosjtu/booksrc/'));
+  assert.equal(web.length,37);assert.equal(shared.length,34);
+  assert.equal(web.length-shared.length,3,'only three site-specific browser programs remain');
+});
 test('unknown functions-only login/check scripts and composed actions remain intact',()=>{
   for(const code of ['function login(){java.put("custom","kept");}','function setTargetLang(){java.ajax("https://example.test");}function login(){setTargetLang();}']){
     const out=m.simplifyLogin(code);assert(out.includes('custom')||out.includes('java.ajax'));
@@ -474,6 +490,41 @@ test('all login UIs preserve row data/order/defaults and compile their exact act
     }
   }
   assert.equal(sources.find(s=>s.bookSourceName==='Nature').loginUi,'@js:common(java).loginUi()');
+});
+test('ProductPlan drops unused variable-dump login code but keeps its common no-op submit hook',()=>{
+  const fixture=fs.readFileSync(path.join(__dirname,'fixtures/productplan-unused-login.js'),'utf8');
+  const expected='function login() { common(java).login(java, {}, {}); }';
+  assert.equal(hash(m.js(m.parse(fixture.trim()))),'29853288df0b6231d456b4237ed085269bb1aa44c75d67616a7ec089eaacb6a0');
+  assert.equal(m.simplifyLogin(fixture),expected);
+  assert.equal(m.simplifyLogin(expected),expected,'migration is idempotent');
+  const source=local.find(s=>s.bookSourceUrl==='https://www.productplan.com');
+  assert.equal(source.loginUrl,expected,'canonical source retains only the required common submit hook');
+  assert.equal(convert(source).loginUrl,expected,'canonical login hook is stable after conversion');
+  const rows=JSON.parse(vm.runInNewContext(source.loginUi.slice(4),{common:()=>api,java:{}}));
+  assert(rows.every(row=>!/(?:logAllVariables|setzhCHS|setlzh)/.test(row.action||'')),
+    'no configured login action calls the removed helpers');
+  const oldJava={writes:[],put(k,v){this.writes.push([k,v])}};
+  vm.runInNewContext(fixture+'\nlogin();',{java:oldJava});
+  const commonJava={writes:[],put(k,v){this.writes.push([k,v])}};
+  vm.runInNewContext(expected+'\nlogin();',{common:()=>api,java:commonJava});
+  assert.deepEqual(commonJava.writes,oldJava.writes,'common no-op preserves submit side effects');
+  const edited=fixture.replace('function login() {}','function login() { java.log("user edit"); }');
+  const preserved=m.simplifyLogin(edited);
+  for(const name of ['logAllVariables','setzhCHS','setlzh','user edit'])assert(preserved.includes(name),'edited program retains '+name);
+});
+test('Carnegie Endowment delegates its whole generic DOM cleanup to common webClean',()=>{
+  const source=local.find(s=>s.bookSourceName==='Carnegie endowment');
+  const original=fs.readFileSync(path.join(__dirname,'fixtures/carnegiesimple-web-clean.js'),'utf8').trim();
+  const options={remove:['script','noscript','style','svg','nav','aside','header','footer','form','button','input','iframe','[hidden]','[aria-hidden="true"]']};
+  const expected=m.browserScript(COMMIT,options);
+  assert.equal(hash(m.js(m.parse(original))),'09b189e765eac3d49cdd80f142268f0b7e87b56df424b4abae743f8f056d2784');
+  assert.equal(m.simplifyWeb(original,{},COMMIT),expected);
+  assert.equal(m.simplifyWeb(expected,{},COMMIT),expected,'migration is idempotent');
+  assert.equal(sources.find(s=>s.bookSourceUrl===source.bookSourceUrl).ruleContent.webJs,expected,
+    'canonical webJs is the shared two-line program');
+  const edited=m.simplifyWeb(original+'\nwindow.__userEdited=true;',{},COMMIT);
+  assert.match(edited,/__userEdited\s*=\s*true/,'custom edits do not match the stock fingerprint');
+  assert.notEqual(edited,expected);
 });
 test('Nature/Qiushi stay TEXT/image-only and pass the request scheme to common image cleanup',()=>{
   const nature=sources.find(s=>s.bookSourceName==='Nature').ruleContent.content;

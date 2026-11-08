@@ -169,3 +169,12 @@ email-followup 仍按已有 401 预检失败停止，未重复轮询 Outlook、�
 - common-runtime 已仅发布到 Git 的 `common-runtime` 分支：`8dc673199dad5e21d78ad74fe8999275ed1427a7`（父 `47c94d927ecbefbea6c3f828ecdb522918bd2b5d`）。公共原始文件逐字节验证，94,704 bytes，SHA-256 `ca82b50612159b5dcad7ea83c4604a0d03f6611201837d8fecadc2c8ac81ce6a`。108 个 canonical 源的 loader 和 33 个 browser `webJs` 引用均已固定该版本，共 142 处文本 URL。
 - 回归：tracked Node tests **113 项，111 通过、0 失败、2 项 Chrome 测试因未设置 `USEHTML_CHROME_BIN` 跳过**；真实 Rhino/Jsoup/Kotlin/原生 Formatter harness **1,897 checks、1,027 个脚本编译**；独立 usehtml 测试 4 项通过（32 DOM checks）；108 源结构 validator 与 4 项同步测试通过。
 - 本轮未向手机部署新源，也未编译 APK；需要重新导入 canonical、开启特殊样式并重下 Science 正文后，手机上的实际标题效果才会更新。已有未提交的 CNKI 工作区改动没有纳入本次修复提交。
+
+## 2026-11-08 收尾复核：登录与通用 WebView 残余
+
+- 对干净 HEAD `4ea1345` 的 108 源重新运行全量简化器，只需再改 3 个字段：Carnegie 的通用 DOM 清理、求是图片选项的排版、ProductPlan 登录脚本。生成后总对象大小 **497,129 bytes**（上一基线 497,541 bytes；相对原始 5,020,914 bytes 减少 **90.10%**）。其余 105 个源对象无需改动；这 3 个源的其他字段也保持原值。
+- 108/108 `jsLib` loader 都是相同的两行、固定同一 SHA；38 个 `loginUi`、28 个 `loginCheckJs` 全部经 common。49 个非空 `loginUrl` 中，13 个是真实浏览器登录 URL，36 个脚本里 35 个经 common；PDMA 的 `{{book.bookUrl}};` 保留书本上下文。
+- ProductPlan 的 642-byte `loginUrl` 会遍历并记录作用域变量，且 UI 没有调用其变量 dump/旧语言函数。现在仅留 54-byte common no-op 提交钩子，维持 Legado 的登录 UI 按钮脚本入口，同时不记录登录上下文。
+- 37 个 `webJs` 中，34 个用两行 CORS loader 调 common；Carnegie 的 9 行纯 DOM 清理已按完整 AST 指纹改为 `webClean`，未改其选择器；剩余 3 个脚本分别有站点专用字符串修正、懒加载图片字段或 `getDecode()`，因此保留。
+- final URL 审计的 22 个最终链接程序与 4 个分页/书单程序继续由完整指纹测试覆盖；相对路径和 Legado URL 选项原样保留，真正的跨页资源、API 请求、HTTP 镜像和分页构造不删。干净 108 源的唯一 5 个 catch 位于 inc.com/IEEE 的网络请求边界，均调用 common `networkError`；普通脚本错误不会被回退吞掉。
+- 回归：tracked Node tests **116/116 通过、0 skip**（含 Chrome CORS/DOM 实测）；Rhino/Jsoup/原生 Kotlin RuleAnalyzer/Formatter/URL harness **1,897 checks、1,027 个脚本编译**；108 源 validator 与 4 项 runtime-sync tests 通过。当前未提交的 CNKI 元数据工作区改动仍原样保留、不混入本次提交；其新增脚本有 3 个空 catch，不属于干净 HEAD 的源清理结果。该私有 CNKI 测试在当前工作区单独运行通过。
