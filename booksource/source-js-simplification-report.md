@@ -1,6 +1,6 @@
 # 书源 JS 精简与 common v3
 
-2026-11-07 创建，2026-11-08 续验；基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。当前结论见文末「最终 URL 与混合规则全量审计」，此前各阶段的候选/计数不是当前验收。
+2026-11-07 创建，2026-11-08 续验；基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。当前结论见文末最新「Science 标题与协议相对图片补充」，此前审计数字是各阶段历史快照。
 
 首版实现已 check in 为 `b75c199`（`Simplify all source JS with shared common v3`）；随后补充了 IEEE 异常边界审计，当前源使用下面的新公共 SHA。工作分支未推送。
 
@@ -16,7 +16,7 @@
 - 收尾审计发现 IEEE 三个网络 catch 仍豁免所有 SyntaxError，已改为直接 networkError：ajax/cache 的 SyntaxError 和 TypeError 均原样抛出。只有明确的外部 JSON 解码使用 common.serviceJson；无效服务数据返回 null 并记录通用诊断，缓存 JSON.parse 仍报错。签名 URL 的字符逐字不变。
 - common 的网络错误边界也保留 null/undefined 等原始抛出值，不生成二次 TypeError。调试工具排除输入请求 URL 的回显后再判断错误、完成标记及 HTML 计数；故意构造的测试异常不再被回显误判，真实运行异常仍报错。
 
-当前公共发布：`47c94d927ecbefbea6c3f828ecdb522918bd2b5d`，父提交 `0fa34494c322b71172bd5e11f1897a570c319364`，只修改 `booksource/runtime/legado-shared-runtime.js`。没有发布 sites 模块、工作分支、手机源或凭据。固定 raw URL 已下载并逐字节一致，94,366 bytes、SHA-256：`4b7ad2874b146b1e3f1602a3b619749f0bdc82155db333d059dd09f36c59780f`。此前 `0fa3449…` 的父为 `16908f51298880d881471b20b828d9961492efb6`，raw SHA-256 为 `405cc00a865fa357a57830c74670abf921c02f7a16a87ec213538789bceaf677`；首版 v3 公共 SHA 为 `2a746411dff84335ff5e6fe249d2dfdd2cb42d0e`（其父为 `09ab5cf52b7d089b618583af9ca98c16e4676116`）。旧固定 URL 不受补丁影响。最新补审见文末。
+当前公共发布：`8dc673199dad5e21d78ad74fe8999275ed1427a7`，父提交 `47c94d927ecbefbea6c3f828ecdb522918bd2b5d`，只修改 `booksource/runtime/legado-shared-runtime.js`。只推送了 `common-runtime` 公共库分支，没有发布 sites 模块、工作分支、手机源或凭据。固定 raw URL 已下载并逐字节一致，94,704 bytes、SHA-256：`ca82b50612159b5dcad7ea83c4604a0d03f6611201837d8fecadc2c8ac81ce6a`。`47c94d9…` 的上一个版本与更早发布历史见各阶段记录。
 
 ## 体积与保全
 
@@ -159,3 +159,13 @@ email-followup 仍按已有 401 预检失败停止，未重复轮询 Outlook、�
 本地实现和检查已完成；剩余是原机 Native/三站点及 108 源实际部署验收。需要本人将 localhost 阅读 App 强行停止后重开、保持前台亮屏并重新启用 Web 服务，无需清理数据。不能用备用机 Native 通过来声称原机已恢复，或用结构测试声称所有网站流程已通过。
 
 按 email-followup 使用现有通道做一次只读预检，仍为 Outlook HTTP 401。能力门槛未通过，未调用原生等待、未建邮件 STATE/worker、未发请示或结果邮件，未改认证/全局配置。恢复 App 的本人交接只能在 console 继续。
+
+## 2026-11-08 后续补充：Science 标题和协议相对图片
+
+本节更新并取代上文最终 URL 审计中的 usehtml 数量、公共 SHA 和相关源行为结论：
+
+- canonical 的 108 个正式书源中，**IEEE、Science 共 2 个**显式使用 `ltUseHtmlBlocks`。Science 正文先经 `TH`，再保护 h1–h6 与 blockquote；Nature、求是、ScienceDirect 仍不启用 usehtml。App 需开启「适配特殊样式」，已有正文缓存需刷新后重下；没有改 App 本体。
+- Nature/求是把正文请求 `baseUrl` 传给公共图片 helper。helper 仅把 `//host/path` 按页面 HTTP/HTTPS scheme 补全，签名查询及 Legado URL 选项原样保留；根路径和 `../` 仍交给原生 Formatter。二者原有 TEXT/图片处理模式不变。
+- common-runtime 已仅发布到 Git 的 `common-runtime` 分支：`8dc673199dad5e21d78ad74fe8999275ed1427a7`（父 `47c94d927ecbefbea6c3f828ecdb522918bd2b5d`）。公共原始文件逐字节验证，94,704 bytes，SHA-256 `ca82b50612159b5dcad7ea83c4604a0d03f6611201837d8fecadc2c8ac81ce6a`。108 个 canonical 源的 loader 和 33 个 browser `webJs` 引用均已固定该版本，共 142 处文本 URL。
+- 回归：tracked Node tests **113 项，111 通过、0 失败、2 项 Chrome 测试因未设置 `USEHTML_CHROME_BIN` 跳过**；真实 Rhino/Jsoup/Kotlin/原生 Formatter harness **1,897 checks、1,027 个脚本编译**；独立 usehtml 测试 4 项通过（32 DOM checks）；108 源结构 validator 与 4 项同步测试通过。
+- 本轮未向手机部署新源，也未编译 APK；需要重新导入 canonical、开启特殊样式并重下 Science 正文后，手机上的实际标题效果才会更新。已有未提交的 CNKI 工作区改动没有纳入本次修复提交。

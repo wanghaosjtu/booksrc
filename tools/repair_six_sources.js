@@ -74,7 +74,7 @@ function sixFinish(doc, url, translate) {
   var html = String(doc.body().html());
   if (translate && typeof TH === 'function') html = TH(html, java, cache, {
     remove_selector: [], extract_selector: [], formula_mode: 'none', formula_selector: '',
-    image_base_url: url, notranslate_selector: ['.notranslate', 'math', '.MathJax_Display']
+    notranslate_selector: ['.notranslate', 'math', '.MathJax_Display']
   });
   return String(html);
 }

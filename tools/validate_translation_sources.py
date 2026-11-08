@@ -19,7 +19,9 @@ assert "String(attr.getKey()) !== \"src\"" in runtime
 assert 'Authorization:"Bearer "' in runtime
 assert "svg.latex.svg?" in runtime
 assert "translate/auth" not in runtime
-assert "_ltResolveImage" not in runtime and "image_base_url" not in runtime
+assert "_ltResolveImage" not in runtime
+assert "function _ltProtocolRelativeImageUrl(src,options)" in runtime
+assert "options&&options.image_base_url" in runtime
 assert len(loader.strip().splitlines()) == 2
 assert "eval(String(importer.importScript(" in loader
 assert not any(token in loader for token in ("catch", "__ltCommonApi", "__ltBuildCommon", "LEGADO_COMMON_VERSION"))
@@ -43,7 +45,8 @@ for s in data:
         if key.startswith("rule"):
             text = json.dumps(value, ensure_ascii=False)
             assert "translatetext" not in text and "translate/auth" not in text, s.get("bookSourceName")
-    assert "image_base_url" not in str(s.get("ruleContent", {}).get("content", ""))
+    image_base = "image_base_url" in str(s.get("ruleContent", {}).get("content", ""))
+    assert image_base == (s.get("bookSourceName") in {"Nature", "Science", "求是网"})
 assert len(commits) == 1, "all source loaders must pin one full revision"
 
 # Metadata is retained in canonical for inventory/validation. Runtime settings
@@ -120,10 +123,15 @@ assert "readable: true" in readable and "function extractReadableContent" not in
 nature = by_name["Nature"]
 assert "notranslate_selector" in nature["ruleContent"]["content"]
 assert 'extract_selector: ["inline-formula tex-math"]' in nature["ruleContent"]["content"]
+assert 'image_base_url: String(baseUrl || "")' in nature["ruleContent"]["content"]
 assert nature["loginUi"] == "@js:common(java).loginUi()"
 qiushi = by_name["求是网"]["ruleContent"]["content"]
-assert "common(java).ltPrepareImages(result, java)" in qiushi
+assert "common(java).ltPrepareImages(result, java, {" in qiushi
+assert 'image_base_url: String(baseUrl || "")' in qiushi
 assert not any(s in qiushi for s in (".TH(", ".TC(", "attributes().iterator()", "<usehtml>"))
+html_sources = [s["bookSourceName"] for s in data if ".ltUseHtmlBlocks(" in str(s.get("ruleContent", {}).get("content", ""))]
+assert html_sources == ["Science", "IEEE"]
+assert "image_base_url: String(baseUrl || \"\")" in by_name["Science"]["ruleContent"]["content"]
 assert "image_anchor_mode" in by_name["ScienceDirect"]["ruleContent"]["content"]
 assert "image_alt_selector" in by_name["Wiley"]["ruleContent"]["content"]
 for name in ("Oxford Academy", "Oxford Academy back"):

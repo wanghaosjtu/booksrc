@@ -163,6 +163,11 @@ function _ltSrcset(value){
 }
 function _ltUsable(v){v=_ltString(v).trim().toLowerCase();return!!v&&v!=="#"&&v.indexOf("javascript:")!==0&&v.indexOf("about:")!==0&&v.indexOf("transparent")<0&&v.indexOf("placeholder")<0&&v.indexOf("spacer")<0;}
 function _ltAttr(el,key){var v=_ltString(el.attr(key)).trim();return key.indexOf("srcset")>=0?_ltSrcset(v):v;}
+function _ltProtocolRelativeImageUrl(src,options){
+    if(src.indexOf("//")!==0)return src;
+    var base=_ltString(options&&options.image_base_url).trim(),match=base.match(/^(https?):\/\//i);
+    return match?match[1].toLowerCase()+":"+src:src;
+}
 function _ltReplaceAltImages(doc,selectors){var i,j,els,el,src,img;for(i=0;selectors&&i<selectors.length;i++){els=doc.select(String(selectors[i]));for(j=0;j<els.size();j++){el=els.get(j);src=_ltString(el.attr("data-altimg")).trim();if(!src)continue;img=doc.createElement("img");img.attr("src",src);el.replaceWith(img);}}}
 function _ltAnchor(href,options){if(options.image_anchor_suffix)return href+_ltString(options.image_anchor_suffix);return options.image_anchor_options?href+","+useHtmlRuleJson(options.image_anchor_options):href;}
 var _LT_LAZY=["data-src","data-original","data-original-src","data-lazy-src","data-lazy","data-echo","data-img-src","data-image-url","data-image","data-url","data-fallback-src","data-full-src","data-hi-res-src","data-large-file","data-srcset"];
@@ -176,9 +181,10 @@ function _ltPrepareImages(doc,options){
         if(!anchor&&!_ltUsable(picture)){lazy="";for(k=0;k<_LT_LAZY.length;k++){candidate=_ltAttr(img,_LT_LAZY[k]);if(_ltUsable(candidate)){lazy=candidate;break;}}if(!lazy)lazy=_ltAttr(img,"srcset");if(_ltUsable(lazy))src=lazy;}
         if(!_ltUsable(src)){for(k=0;k<_LT_LAZY.length&&!_ltUsable(src);k++)src=_ltAttr(img,_LT_LAZY[k]);if(!_ltUsable(src))src=_ltAttr(img,"srcset");}
         if(!_ltUsable(src)&&href)src=options.image_anchor_mode==="href"?_ltAnchor(href,options):href;
-        // Legado's HtmlFormatter resolves the final image src against the
-        // response URL, including URL options. Leave relative src untouched.
-        if(src)img.attr("src",src);
+        // The native formatter resolves root and path-relative URLs. A
+        // protocol-relative URL needs the page scheme explicitly; preserve it
+        // when no HTTP(S) image_base_url was supplied.
+        if(src)img.attr("src",_ltProtocolRelativeImageUrl(src,options));
         if(!src){img.remove();continue;}
         attrs=img.attributes().iterator();while(attrs.hasNext()){attr=attrs.next();if(String(attr.getKey()) !== "src"&&String(attr.getKey()) !== "alt")attrs.remove();}
     }

@@ -254,6 +254,25 @@ if(u&&u.indexOf("http")!==0){if(u.indexOf("//")===0)u="https:"+u;else if(u.charA
 u||DEFAULT;`;
 }
 
+/* Image helpers need the page scheme to make protocol-relative src fetchable. */
+{
+  const nature = byUrl('https://www.nature.com/nature/browse-issues');
+  const natureBase = 'image_base_url: String(baseUrl || "")';
+  if (!String(nature.ruleContent.content || '').includes(natureBase)) {
+    const marker = '  notranslate_selector: ["div.MathJax_Display"]';
+    if (!String(nature.ruleContent.content || '').includes(marker)) throw new Error('Nature image base marker not found');
+    nature.ruleContent.content = nature.ruleContent.content.replace(marker,
+      '  image_base_url: String(baseUrl || ""),\n' + marker);
+  }
+  const qiushi = byUrl('http://www.qstheory.cn/');
+  const qiushiMarker = 'result = common(java).ltPrepareImages(result, java);';
+  const qiushiReplacement = 'result = common(java).ltPrepareImages(result, java, {image_base_url: String(baseUrl || "")});';
+  if (!String(qiushi.ruleContent.content || '').includes(qiushiReplacement)) {
+    if (!String(qiushi.ruleContent.content || '').includes(qiushiMarker)) throw new Error('Qiushi image helper marker not found');
+    qiushi.ruleContent.content = qiushi.ruleContent.content.replace(qiushiMarker, qiushiReplacement);
+  }
+}
+
 /* Science: classify only actual Cloudflare challenges and refetch the same
  * URL after WebView verification; the former Springer proxy content rule was
  * unrelated to Science.org. */
@@ -276,6 +295,10 @@ scienceResponse;`;
     content: '@css:main@html||[data-extent="article-wrapper"]@html||article@html\n<js>\nvar d=org.jsoup.Jsoup.parseBodyFragment(String(result||""));\nd.select("script,noscript,style,nav,aside,footer,#donation-blackbud-modal,.meta-panel,.to-authors-affiliations,.core-self-citation,.info-panel,.pb-ad,.orcid-id,[data-core-nav=header],#backmatter,.core-collateral,template,div.audio-player,div.mb-2x,form.mb-4,.multi-search").remove();\nvar best=d.select("[data-extent=article-body],.article-body,.article-body__content,.article-content,#article-body").first();\nif(best)result=""+best.html();else result=""+d.body().html();\nif(typeof TH==="function")result=TH(result,java,cache,{remove_selector:[],extract_selector:[],formula_mode:"none",formula_selector:""});\nresult;\n</js>',
     imageStyle: 'FULL'
   };
+  s.ruleContent.content = s.ruleContent.content.replace(
+    'if(typeof TH==="function")result=TH(result,java,cache,{remove_selector:[],extract_selector:[],formula_mode:"none",formula_selector:""});',
+    'result=common(java).TH(result,java,cache,{remove_selector:[],extract_selector:[],formula_mode:"none",formula_selector:"",image_base_url:String(baseUrl||"")});\nresult=common(java).ltUseHtmlBlocks(result,java);'
+  );
 }
 
 // The maintained Resources/DOI/cover rules supersede legacy selectors above.

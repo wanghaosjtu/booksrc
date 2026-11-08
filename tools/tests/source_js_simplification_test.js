@@ -124,10 +124,12 @@ test('cross-page covers, HTTP mirrors, API/CDN requests and edited pagination st
     }
   }
 });
-test('only IEEE explicitly enables usehtml; Science and the other formal sources keep their current mode',()=>{
-  assert.deepEqual(sources.filter(s=>/ltUseHtmlBlocks|<usehtml\b/i.test(s.ruleContent?.content||'')).map(s=>s.bookSourceName),['IEEE']);
+test('IEEE and Science explicitly protect semantic heading blocks; other sources keep their display mode',()=>{
+  assert.deepEqual(sources.filter(s=>/ltUseHtmlBlocks|<usehtml\b/i.test(s.ruleContent?.content||'')).map(s=>s.bookSourceName),['Science','IEEE']);
   const science=sources.find(s=>s.bookSourceName==='Science');
-  assert(science.ruleContent.content.includes('common(java).TH(')&&!science.ruleContent.content.includes('ltUseHtmlBlocks'));
+  const scienceRule=science.ruleContent.content;
+  assert(scienceRule.includes('common(java).TH(')&&scienceRule.includes('common(java).ltUseHtmlBlocks('));
+  assert(scienceRule.indexOf('common(java).TH(')<scienceRule.indexOf('common(java).ltUseHtmlBlocks('));
   assert(!science.loginUi.includes('"render"'),'no implicit HTML mode is added');
 });
 test('four audited book-list URL programs preserve deduplication and real page requests',()=>{
@@ -223,11 +225,12 @@ test('legacy TH checks around an already image-only helper do not disable phone 
     const source=convert({bookSourceName:'Existing phone images',bookSourceUrl:'https://images.test',jsLib:lib,
       ruleContent:{content:'<js>if(enabled&&typeof TH==="function")result=ltPrepareImages(result,java,{image_base_url:baseUrl});result;</js>'}});
     const code=source.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1];
-    assert(!code.includes('typeof TH')&&!code.includes('.TH(')&&!code.includes('image_base_url'));
+    assert(!code.includes('typeof TH')&&!code.includes('.TH(')&&code.includes('image_base_url: baseUrl'));
     for(const enabled of [false,true]){
-      let calls=0;
-      const value=vm.runInNewContext(code,{enabled,result:'<img src="//cdn.test/x.svg">',java:{},common:()=>({ltPrepareImages:v=>{calls++;return v;}})});
+      let calls=0,options;
+      const value=vm.runInNewContext(code,{enabled,result:'<img src="//cdn.test/x.svg">',baseUrl:'https://images.test/article',java:{},common:()=>({ltPrepareImages:(v,j,o)=>{calls++;options=o;return v;}})});
       assert.equal(calls,enabled?1:0);assert.equal(value,'<img src="//cdn.test/x.svg">');
+      if(enabled)assert.equal(JSON.stringify(options),JSON.stringify({image_base_url:'https://images.test/article'}));
     }
   }
 });
@@ -439,7 +442,8 @@ test('all 108 identities and non-JS fields survive; local and phone objects are 
     if(/^https?:\/\//.test(local[i].loginUrl||''))assert.equal(sources[i].loginUrl,local[i].loginUrl);
     assert(sources[i].jsLib.endsWith(loader(COMMIT)));
     assert(!sources[i].jsLib.includes('image_base_url'));
-    assert(!sources[i].ruleContent?.content?.includes('image_base_url'));
+    const needsImageScheme=['Nature','Science','求是网'].includes(local[i].bookSourceName);
+    assert.equal(sources[i].ruleContent?.content?.includes('image_base_url'),needsImageScheme,local[i].bookSourceName+' image base option');
   }
   const phone=local.map(s=>({...s,bookSourceName:s.bookSourceName+' phone',loginInfo:'synthetic-private-login'}));
   const built=m.build(local,phone,COMMIT);
@@ -471,13 +475,14 @@ test('all login UIs preserve row data/order/defaults and compile their exact act
   }
   assert.equal(sources.find(s=>s.bookSourceName==='Nature').loginUi,'@js:common(java).loginUi()');
 });
-test('Nature/Qiushi remain TEXT/image-only; protocol-relative images are left to the app',()=>{
+test('Nature/Qiushi stay TEXT/image-only and pass the request scheme to common image cleanup',()=>{
   const nature=sources.find(s=>s.bookSourceName==='Nature').ruleContent.content;
   assert(nature.includes('common(java).TH(')&&nature.includes('notranslate_selector'));
   assert(nature.includes('inline-formula tex-math'));
+  assert(nature.includes('image_base_url: String(baseUrl || "")'));
   assert(!nature.includes('attributes().iterator()')&&!nature.includes('<usehtml>'));
   const qiushi=sources.find(s=>s.bookSourceName==='求是网').ruleContent.content;
-  assert(qiushi.includes('common(java).ltPrepareImages(result, java)'));
+  assert(qiushi.includes('common(java).ltPrepareImages(result, java, {')&&qiushi.includes('image_base_url: String(baseUrl || "")'));
   assert(!/\.TH\(|\.TC\(|<usehtml>|attributes\(\)/.test(qiushi));
 });
 test('known same-page hero and cover outputs stay relative; cross-page/protocol work and unknown edits stay intact',()=>{

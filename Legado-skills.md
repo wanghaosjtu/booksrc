@@ -11,7 +11,9 @@ description: 为指定网站生成 Legado 阅读 App 的书源 JSON。支持俄�
 
 公共入口均为 `common(java).方法(...)`：TT 翻译单值/数组并缓存、分批和最多四路并发；TJ 翻译 JSON 并跳过 URL/ID；TC 只翻译文本节点；TH 统一移除、提取、图片、公式和可选 Readability。`ltExtract(htmlOrDoc,java,selectors)` 对 usehtml 解包 DOM，普通选择器（如 TeX）仍提取文字；`ltPrepareImages(htmlOrDoc,java,options)` 只处理图片。网络 I/O/服务无效响应保留原文；选择器、类型、JSON/脚本错误必须抛出，不加宽泛 catch，不伪造空目录。
 
-共享 TH 不等于开启富文本。2026-11-08 核对 108 个正式源，只有 IEEE 的正文显式调用 `ltUseHtmlBlocks`（默认 HTML，可切 TEXT）；Science、Nature、求是和 ScienceDirect 均未开启。原机还有一个旧的独立 HTML 验证源，不计入正式源。Science 的 TH 返回裸 HTML，随后原生 Formatter 删除标题标签；不能把这当作公共库加载失败，或未获要求就批量改变所有源的默认格式。需要标题层级时，正文 TH 之后显式调用 `common(java).ltUseHtmlBlocks(result,java)`，并开启 App「适配特殊样式」；旧正文缓存不会自动重写。
+共享 TH 不等于开启富文本。当前 108 个正式源中 IEEE 和 Science 共 2 个显式保护 HTML 块：IEEE 默认 HTML、可切 TEXT；Science 保护 h1–h6/blockquote 标题，但没有独立渲染模式 UI。Nature、求是和 ScienceDirect 仍不启用 usehtml；旧手机还有一个独立 HTML 验证源，不计入正式源。阅读 HTML 块需开启 App「适配特殊样式」，已有纯文本正文缓存不会自动变成富文本，刷新书源后需重新下载正文。
+
+Nature 与求是正文会把 baseUrl 作为 image_base_url 传给公共图片 helper。它只将 //host/path 按页面的 HTTP/HTTPS scheme 补全，保留 URL 查询/请求选项；/root、../relative 仍由原生 Formatter 解析。不要给所有书源强制加域名或 HTTPS。
 
 `serviceJson(response,java)` 只解码外部服务的 JSON：无效 JSON 返回 null 并记录不含原文的诊断；转换输入前的程序异常仍抛出。缓存和本地规则数据继续用 JSON.parse，不能用此方法掩盖坏缓存。IEEE 的网络 catch 不再豁免所有 SyntaxError，只有这一步外部解码允许回退。
 
@@ -183,7 +185,7 @@ if (arr[0] && arr[0].translations && arr[0].translations[0]) {
 
 #### 规则四：最终图片地址交给原生 Formatter
 
-`HtmlFormatter.formatKeepImg` 已按响应 URL 解析 `//host/path`、根路径和 `../`。不再补域名/image_base_url；common 只选 lazy/srcset/picture/anchor 地址，删除重复属性清理循环。图片必须在 usehtml 外，否则跳过原生 Formatter。跨页资产和实际 java.ajax/connect 请求仍需要正确地址，可用 `common(java).resolveRequest(value,base)`；签名查询和 URL 选项必须原样保留。
+`HtmlFormatter.formatKeepImg` 按响应 URL 解析根路径和 `../`。common 只选 lazy/srcset/picture/anchor 的真实地址并清理冗余属性；如调用方传入 `image_base_url`，也会按其 scheme 规范化 `//host/path`，不解析其它相对路径。图片必须在 usehtml 外，否则跳过原生 Formatter。跨页资产和实际 java.ajax/connect 请求仍需要正确地址，可用 `common(java).resolveRequest(value,base)`；签名查询和 URL 选项必须原样保留。
 
 最终书籍、封面、目录及分页 URL 也交给原生处理。章节字段先保存原始 URL 与响应 baseUrl，请求前由 `BookChapter.getAbsoluteURL()` 解析并保留请求选项，不是获取字段时立即转绝对地址。按完整程序指纹移除重复域名前缀，不删除 HTTPS→HTTP 镜像、跨页资产基准或 API/CDN 请求构建。State.gov 书单只对国家去重键解析地址，输出 href 保持原值；从 SPOKES 另取封面时明确用 SPOKES 基准。求是/CACM/Taylor 的年份页仍是真实 ajax 请求，用一次 resolveRequest 替代手写补域名。Jsoup 的 text() 先 String(...) 再使用 JS 的正则 replace/length。
 
@@ -529,8 +531,8 @@ node tools/shared_common_phone.js snapshot booksource/.usehtml-validation-phone/
 公共库发布在 `common-runtime` 分支。当前 v3 的完整 commit：
 
 ```text
-47c94d927ecbefbea6c3f828ecdb522918bd2b5d
-https://raw.githubusercontent.com/wanghaosjtu/booksrc/47c94d927ecbefbea6c3f828ecdb522918bd2b5d/booksource/runtime/legado-shared-runtime.js
+8dc673199dad5e21d78ad74fe8999275ed1427a7
+https://raw.githubusercontent.com/wanghaosjtu/booksrc/8dc673199dad5e21d78ad74fe8999275ed1427a7/booksource/runtime/legado-shared-runtime.js
 ```
 
 全量迁移 canonical 的每个唯一身份，包括 disabled、空 jsLib、自定义库及音频源。中国社会科学期刊的 `burl`、Test 的 `datestr` 必须保留。以下三个历史试点的身份仍不能按名称改写：

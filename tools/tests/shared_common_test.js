@@ -162,6 +162,14 @@ test('srcset respects descriptors and data-URI commas', () => {
   assert.equal(c._ltSrcset(data + ' 1x'), data);
   assert.equal(c._ltSrcset(data + ' 1x, https://example.test/large.png 2x'), 'https://example.test/large.png');
 });
+test('protocol-relative image URLs inherit the source scheme without altering signed options',()=>{
+  const c=common(),src='//cdn.example.test/image.svg?sig=a%2Fb+1,{"webView":true}';
+  assert.equal(c._ltProtocolRelativeImageUrl(src,{image_base_url:'https://www.nature.com/article'}),'https:'+src);
+  assert.equal(c._ltProtocolRelativeImageUrl(src,{image_base_url:'http://www.qstheory.cn/article'}),'http:'+src);
+  assert.equal(c._ltProtocolRelativeImageUrl(src,{}),src);
+  assert.equal(c._ltProtocolRelativeImageUrl('https://cdn.example.test/image.svg?sig=a%2Fb+1',{}),
+    'https://cdn.example.test/image.svg?sig=a%2Fb+1');
+});
 test('login verification rechecks both redirect destinations and HTTP codes after verification',()=>{
   const c=common(),root='https://sage.cnpereading.com/';
   const response=(body,url,code=200)=>({body:()=>body,url:()=>url,code:()=>code});
@@ -279,13 +287,13 @@ test('the actual complete canonical inventory migrates and is idempotent', () =>
     assert(after.jsLib.includes('function '+(name==='Test'?'datestr':'burl')+'('));
   }
 });
-test('Nature/Qiushi use common image/extraction processing without manual base URLs', () => {
+test('Nature/Qiushi use common image/extraction processing with the page scheme', () => {
   const local = JSON.parse(fs.readFileSync(path.join(ROOT,'booksource/legado-book-sources-current.json'),'utf8'));
   for (const name of ['Nature','求是网']) {
     const before=local.find(s=>s.bookSourceName===name),after=simplifySource(before,COMMIT,runtimeData()),r=after.ruleContent.content;
-    assert(!r.includes('image_base_url'));
     assert.equal((r.match(/\bTH\(/g)||[]).length,(before.ruleContent.content.match(/\bTH\(/g)||[]).length);
     assert(!r.includes('<usehtml>'));
+    assert(r.includes('image_base_url: String(baseUrl || "")'));
     if(name==='Nature') assert(r.includes('extract_selector: ["inline-formula tex-math"]'));
     else assert(r.includes('common(java).ltPrepareImages(')&&!r.includes('attributes().iterator()'));
     assert.deepEqual({...after.ruleContent,content:''},{...before.ruleContent,content:''});

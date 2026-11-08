@@ -214,7 +214,6 @@ function constantSettings(tree,defaults) {
 function commonOptions(node,defaults,globals) {
   if(!node)node={type:'ObjectExpression',properties:[]};
   assert.equal(node.type,'ObjectExpression','common options must be visible source data');
-  node.properties=node.properties.filter(p=>(p.key.name||p.key.value)!=='image_base_url');
   for(const name of ['formula_mode','formula_selector','extract_selector']) {
     let p=node.properties.find(p=>(p.key.name||p.key.value)===name);
     const inherit=!p || (name!=='extract_selector'&&p.value.type==='Literal'&&!p.value.value);
@@ -591,7 +590,6 @@ function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNa
         const opts=commonOptions(n.arguments[3],defaults,inlineGlobals);
         n.arguments=n.arguments.slice(0,3);if(opts.properties.length)n.arguments.push(opts);
       }
-      if(name==='ltPrepareImages'&&n.arguments[2]?.type==='ObjectExpression')n.arguments[2].properties=n.arguments[2].properties.filter(p=>(p.key.name||p.key.value)!=='image_base_url');
       if(name==='ltUseHtmlBlocks'&&n.arguments.length>=3)n.arguments=[...n.arguments.slice(0,2),...n.arguments.slice(3)];
       n.callee=expression('common(java).'+name);
     }

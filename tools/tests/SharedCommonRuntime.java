@@ -135,11 +135,21 @@ public final class SharedCommonRuntime {
             + "var signedRelative='images/signed.svg?sig=a%2Fb+1&expiry=23,'+rawOptions;"
             + "imageDoc.body().appendElement('img').attr('src',signedRelative).attr('alt',String(__formula));"
             + "var codecogs=_ltFormulaSvgUrl(String(__formula));imageDoc.body().appendElement('img').attr('src',codecogs);"
-            + "var imageOptions={image_anchor_mode:'href',image_anchor_options:{webView:true}};");
+            + "var imageOptions={image_anchor_mode:'href',image_anchor_options:{webView:true},image_base_url:String(__imageBase)};");
         check(Boolean.TRUE.equals(eval("ltPrepareImages(imageDoc,null,imageOptions)===imageDoc")), "image-only helper preserves DOM identity and metadata");
+        bind("__protocolHtml", "<img src='//cdn.example.test/signed.svg?sig=a%2Fb+1,{\"webView\":true}'>");
+        bind("__httpsImageBase", "https://www.nature.com/nature/issue/article");
+        eval("var httpsImageDoc=org.jsoup.Jsoup.parseBodyFragment(String(__protocolHtml));"
+            + "ltPrepareImages(httpsImageDoc,null,{image_base_url:String(__httpsImageBase)});");
+        String normalizedHttps=String.valueOf(eval("String(httpsImageDoc.select('img').attr('src'))"));
+        check(normalizedHttps.equals("https://cdn.example.test/signed.svg?sig=a%2Fb+1,{\"webView\":true}"),
+            "Nature protocol-relative image uses page scheme and preserves signed URL options: "+normalizedHttps);
+        eval("var noBaseImageDoc=org.jsoup.Jsoup.parseBodyFragment(String(__protocolHtml));ltPrepareImages(noBaseImageDoc,null,{});");
+        check(String.valueOf(eval("String(noBaseImageDoc.select('img').attr('src'))")).startsWith("//cdn.example.test/"),
+            "protocol-relative image without a source scheme is left intact");
         Document doc = Jsoup.parseBodyFragment(String.valueOf(eval("String(imageDoc.body().html())")));
         String[] urls = {
-            "//cdn.example.test/a.svg",
+            "http://cdn.example.test/a.svg",
             "/assets/root.svg?sig=a%2Fb&n=1+2",
             "figures/relative.svg",
             "../parent.svg",
@@ -244,7 +254,10 @@ public final class SharedCommonRuntime {
         }
     }
     private void readableAndFormulas() throws Exception {
-        String paragraph="Readable main text, with punctuation; preserve scientific words and the original article paragraphs. ".repeat(5);
+        String sentence="Readable main text, with punctuation; preserve scientific words and the original article paragraphs. ";
+        StringBuilder paragraphBuilder=new StringBuilder();
+        for(int i=0;i<5;i++)paragraphBuilder.append(sentence);
+        String paragraph=paragraphBuilder.toString();
         String article="<article class='article-body'><h1>Readable title</h1><p>"+paragraph+"x \\neq y and d\\mathrm{snr}</p><div class='social-share'>NOISE</div></article>";
         bind("__readable", "<html><body><nav>NAVIGATION</nav>"+article+"</body></html>");
         Document ssr=Jsoup.parseBodyFragment(String.valueOf(eval("String(_ltReadableDocument(org.jsoup.Jsoup.parse(String(__readable)),['nav']).body().html())")));
