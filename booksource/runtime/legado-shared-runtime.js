@@ -525,7 +525,9 @@ function _ltWebClean(doc,options) {
     return doc.body.outerHTML;
 }
 
-function _ltBrowserReadable(doc) {
+/* The legacy manual helper opts into strict errors; normal webClean keeps
+ * Readability's compatibility handling for malformed page attributes. */
+function _ltBrowserReadable(doc, strict) {
 /*eslint-env es6:false*/
     /*
      * Copyright (c) 2010 Arc90 Inc
@@ -847,6 +849,7 @@ function _ltBrowserReadable(doc) {
 		try {
 		    return new URL(uri, baseURI).href;
 		} catch (ex) {
+		    if (strict) throw ex;
 		    // Something went wrong, just return the original:
 		}
 		return uri;
@@ -892,7 +895,7 @@ function _ltBrowserReadable(doc) {
 		// If they had an element with id "title" in their HTML
 		if (typeof curTitle !== "string")
 		    curTitle = origTitle = this._getInnerText(doc.getElementsByTagName("title")[0]);
-	    } catch (e) {/* ignore exceptions setting the title. */}
+	    } catch (e) {if (strict) throw e; /* ignore malformed page titles otherwise. */}
 
 	    var titleHadHierarchicalSeparators = false;
 	    function wordCount(str) {
@@ -1069,6 +1072,7 @@ function _ltBrowserReadable(doc) {
 		try {
 		    replacement.setAttribute(node.attributes[i].name, node.attributes[i].value);
 		} catch (ex) {
+		    if (strict) throw ex;
 		    /* it's possible for setAttribute() to throw if the attribute name
 		     * isn't a valid XML Name. Such attributes can however be parsed from
 		     * source in HTML docs, see https://github.com/whatwg/html/issues/4275,
@@ -2308,6 +2312,7 @@ function _ltBrowserReadable(doc) {
 	    };
 	}
     };
+    if (strict && typeof module === "object") module.exports = Readability;
     return new Readability(doc).parse();
 }
 
@@ -2316,4 +2321,4 @@ function _ltBrowserReadable(doc) {
 ({version:LEGADO_SHARED_RUNTIME,TT:TT,TJ:TJ,TC:TC,TH:TH,
   ltPrepareImages:ltPrepareImages,ltExtract:ltExtract,ltUseHtmlBlocks:ltUseHtmlBlocks,
   setTargetLang:_ltSetTargetLang,setRenderMode:_ltSetRenderMode,login:_ltLogin,loginUi:_ltLoginUi,open:_ltOpen,
-  challenge:_ltChallenge,check:_ltCheck,clean:_ltClean,finish:_ltFinish,resolveRequest:_ltResolveRequest,networkError:_ltNetworkError,serviceJson:_ltServiceJson,wirisSvg:_ltWirisSvg,webClean:_ltWebClean});
+  challenge:_ltChallenge,check:_ltCheck,clean:_ltClean,finish:_ltFinish,resolveRequest:_ltResolveRequest,networkError:_ltNetworkError,serviceJson:_ltServiceJson,wirisSvg:_ltWirisSvg,webClean:_ltWebClean,browserReadable:_ltBrowserReadable});
