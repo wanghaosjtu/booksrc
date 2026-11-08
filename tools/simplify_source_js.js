@@ -27,6 +27,12 @@ const BODY_HELPERS = {
   incBody:'8639be60ab659e39e7111964ff5184f2e09a67063ebfcb1be0ce89e5ae207c8a',
   responseBody:'87d1c96a1dea199bcf38095e36c765879259977c4793bf053628207a1856c5c2'
 };
+// Stock Readability inside PMA's manual browser helper, before and after the
+// earlier removal of empty catches. Unknown/edited helpers remain untouched.
+const LEGACY_BROWSER_HELPERS = new Set([
+  '2b739905459411bccd83b54ead7fdbb8664860e899adb61f1b76ecf771c8464c',
+  'd95e9ba295a01a4f1e3f066ff59e936d47547939d9caaab2eed2f4f0a1eba61d'
+]);
 const CHECK_RULES = {
   '2073846b3b9eaf373568e9fe05c622f286dce1f8e1c355493387effbba67119a':{kind:'strictCloudflare',name:'Science',title:'Science Cloudflare验证'},
   'af4c67e5c4642722cb6e1aa596b49bc8bad10b40dc1505032e1728cc32d66130':{kind:'akamai',title:'站点人工验证'},
@@ -538,12 +544,23 @@ function simplifyCheck(text) {
   if(!options)return simplifyProgram(text,{}, {protectedNames:new Set(tree.body.filter(n=>n.type==='FunctionDeclaration').map(n=>n.id.name))});
   return 'common(java).check(result,java,'+JSON.stringify(options)+');';
 }
-function browserScript(commit,options) {
+function browserLoader(commit) {
   assert(/^[0-9a-f]{40}$/.test(commit),'full immutable common SHA required');
   const url='https://raw.githubusercontent.com/wanghaosjtu/booksrc/'+commit+'/booksource/runtime/legado-shared-runtime.js';
   // URL webJs has no Java bridge. A plain CORS GET also works in rule WebViews.
-  return 'if (!window.legadoCommon) { var commonRequest = new XMLHttpRequest(); commonRequest.open("GET",'+JSON.stringify(url)+',false); commonRequest.send(null); if (commonRequest.status !== 200) throw new Error("Common runtime HTTP " + commonRequest.status); window.legadoCommon = eval(commonRequest.responseText); }\n'
+  return 'if (!window.legadoCommon) { var commonRequest = new XMLHttpRequest(); commonRequest.open("GET",'+JSON.stringify(url)+',false); commonRequest.send(null); if (commonRequest.status !== 200) throw new Error("Common runtime HTTP " + commonRequest.status); window.legadoCommon = eval(commonRequest.responseText); }';
+}
+function browserScript(commit,options) {
+  return browserLoader(commit)+'\n'
     +'window.legadoCommon.webClean(document,'+JSON.stringify(options)+');';
+}
+function browserReadableHelper(commit) {
+  return parse('function auto_clean_up(){'+browserLoader(commit)+'\n'
+    +'var article=window.legadoCommon.browserReadable(document,true);document.body.innerHTML=article.content;}').body[0];
+}
+function sharedBrowserHelper(node) {
+  const code=js(node),commit=code.match(/https:\/\/raw\.githubusercontent\.com\/wanghaosjtu\/booksrc\/([0-9a-f]{40})\/booksource\/runtime\/legado-shared-runtime\.js/)?.[1];
+  return !!commit&&code===js(browserReadableHelper(commit));
 }
 function sharedWebOptions(text) {
   const commit=text.match(/https:\/\/raw\.githubusercontent\.com\/wanghaosjtu\/booksrc\/([0-9a-f]{40})\/booksource\/runtime\/legado-shared-runtime\.js/)?.[1];
@@ -631,6 +648,8 @@ function simplifySource(source,commit,runtime) {
   }
   collect(out);
   let siteTree=parse(site);
+  siteTree.body=siteTree.body.map(n=>n.type==='FunctionDeclaration'&&n.id.name==='auto_clean_up'
+    &&(LEGACY_BROWSER_HELPERS.has(hash(js(n)))||sharedBrowserHelper(n))?browserReadableHelper(commit):n);
   if(!externalReads.has('Readability'))siteTree.body=siteTree.body.filter(n=>!(
     n.type==='FunctionDeclaration'&&n.id.name==='Readability'
     ||n.type==='ExpressionStatement'&&n.expression.type==='AssignmentExpression'&&n.expression.left.object?.name==='Readability'
@@ -675,4 +694,4 @@ function main() {
   console.log(JSON.stringify(report,null,2));
 }
 if(require.main===module)main();
-module.exports={data,parse,js,walk,transform,reads,simplifyProgram,simplifySource,simplifyUi,simplifyLogin,simplifyCheck,simplifyWeb,browserScript,uiAction,runtimeData,build,main};
+module.exports={data,parse,js,walk,transform,reads,simplifyProgram,simplifySource,simplifyUi,simplifyLogin,simplifyCheck,simplifyWeb,browserLoader,browserScript,browserReadableHelper,uiAction,runtimeData,build,main};

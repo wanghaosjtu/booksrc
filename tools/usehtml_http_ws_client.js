@@ -28,7 +28,7 @@ function summarizeDebug(result, key = '') {
   const diagnostics=/^https?:\/\//i.test(requestUrl)?text.split(requestUrl).join('[request URL]'):text;
   const contentFinished = /正文页解析完成/.test(diagnostics);
   const tocFinished = /目录页解析完成/.test(diagnostics);
-  const error = /(?:ScriptException|JavaScriptException|ReferenceError|EvaluatorException|EcmaError|SyntaxError|TypeError|RangeError|URIError|EvalError|UnknownHostException|SocketTimeoutException|ContentEmptyException|调试通道占用中|目录列表为空|需要手动认证|不允许的字符)/;
+  const error = /(?:ScriptException|JavaScriptException|ReferenceError|EvaluatorException|EcmaError|SyntaxError|TypeError|RangeError|URIError|EvalError|UnknownHostException|SocketTimeoutException|TimeoutCancellationException|ContentEmptyException|调试通道占用中|目录列表为空|需要手动认证|不允许的字符)/;
   const missingCompletion = key.startsWith('--') ? !contentFinished : key.startsWith('++') ? !tocFinished : false;
   return {
     transport: result.transport, opened: result.opened, timedOut: result.timedOut,

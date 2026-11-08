@@ -527,8 +527,8 @@ node tools/shared_common_phone.js snapshot booksource/.usehtml-validation-phone/
 公共库发布在 `common-runtime` 分支。当前 v3 的完整 commit：
 
 ```text
-0fa34494c322b71172bd5e11f1897a570c319364
-https://raw.githubusercontent.com/wanghaosjtu/booksrc/0fa34494c322b71172bd5e11f1897a570c319364/booksource/runtime/legado-shared-runtime.js
+47c94d927ecbefbea6c3f828ecdb522918bd2b5d
+https://raw.githubusercontent.com/wanghaosjtu/booksrc/47c94d927ecbefbea6c3f828ecdb522918bd2b5d/booksource/runtime/legado-shared-runtime.js
 ```
 
 全量迁移 canonical 的每个唯一身份，包括 disabled、空 jsLib、自定义库及音频源。中国社会科学期刊的 `burl`、Test 的 `datestr` 必须保留。以下三个历史试点的身份仍不能按名称改写：
@@ -551,6 +551,8 @@ https://raw.githubusercontent.com/wanghaosjtu/booksrc/0fa34494c322b71172bd5e11f1
 - `importScript` 按 URL 缓存下载文件，和原生 `jsLib` 的 ACache 不是同一份缓存；升级要发布新 commit 并更换固定 URL，不依赖移动分支覆盖缓存。
 
 `ruleContent.webJs` / URL 选项的 webJs 是普通浏览器环境，不注入 Rhino 的 `java`。33 个已审计的大脚本现用两行浏览器加载器：同步 CORS XMLHttpRequest 读取同一固定 SHA，成功 eval 后缓存 API，再调用 `webClean(document,options)`。HTTP 非 200、脚本/DOM 错误不静默回退。不要再次写 `java.importScript`；只有 `<webjs>` 正文规则的另一条 `isRule=true` 路径有 Java bridge。实际站点的 CSP/connect-src/unsafe-eval、网络和 Android WebView 可用性仍须验收；浏览器本地测试不能代替手机结果。
+
+PMA search 的已审计 `auto_clean_up` 保留手动入口，但不再内联 43 KB Readability；浏览器加载器后调用 `window.legadoCommon.browserReadable(document,true)`，再更新 body。`true` 保留原 JS 精简后的严格异常和 module.exports 行为；普通 webClean 仍保留第三方 Readability 对畸形页面属性的兼容处理。只匹配原始/精简后完整 AST 指纹及本次生成的完整委托函数；用户编辑过的 helper 不猜测替换。
 
 ### 8.3 IEEE HTML 与 SVG 规则
 
@@ -601,7 +603,7 @@ python3 tools/validate_translation_sources.py
 
 真实引擎测试还需配置 `USEHTML_JAVA_HOME`、`USEHTML_ENGINE_JAR`、`USEHTML_JSOUP_JAR`、`USEHTML_KOTLIN_LIB` 和 `USEHTML_IEEE_CAPTURE`；真实浏览器回归配置 `USEHTML_CHROME_BIN` 指向已验证的 Chrome 可执行文件，使用新临时 profile 和两端口 CORS 测试服务器，不借用登录会话。未配置或测试 skipped 不代表已通过 Android 验收。
 
-`shared_common_smoke.js webview` 通过真实 URL `webView:true` / `webJs` 路径访问手机自身的健康端点，只替换这次独立页面的 DOM，并读取固定 SHA 公共库；错误以失败 metrics 返回，不冒充可读正文。`diagnostic ... webview-control` 不加载库、不访问外网。不要用 AnalyzeUrl bodyJs 内嵌的阻塞 `java.webView` 调用作为该生产路径的验收。2026-11-08 原机 importScript/缓存/SVG 已通过，但上述最小 Native URL WebView 对照仍超时；备用机旧 CacheManager 锁未解，不向它重复追加需缓存的探测。未通过前不批量部署。
+`shared_common_smoke.js webview` 通过真实 URL `webView:true` / `webJs` 路径访问手机自身的健康端点，只替换这次独立页面的 DOM，并读取固定 SHA 公共库；错误以失败 metrics 返回，不冒充可读正文。`diagnostic ... webview-control` 不加载库、不访问外网。不要用 AnalyzeUrl bodyJs 内嵌的阻塞 `java.webView` 调用作为该生产路径的验收。AnalyzeUrl 的 timeout 仅约束 HTTP 读取，不覆盖 BackstageWebView 默认 60 秒期限；WS 客户端现留 75 秒收取真实原生错误，不能用先前 25 秒客户端取消诊断具体 Native 根因。2026-11-08 已收取最小原生对照的 `TimeoutCancellationException: Timed out waiting for 60000 ms`，无 browser metrics。最新 SHA 的原机 importScript 短样本 1,349 ms、全部指标通过；旧缓存/SVG 证据与新发布区分记录。备用机旧 CacheManager 锁未解，不向它重复追加需缓存的探测。Native 未通过前不批量部署。
 
 先用 `tools/shared_common_smoke.js` 建立新版本的独立短样本，覆盖真实 `importScript`、调用者隔离、原始公式编码、图片 `.svg`、图片 URI、HTML 解包和重复处理。优先部署 Nature、求是、IEEE，验证实际规则后继续全部源并全量读回。检查 IEEE `document/9737357` 的 HTML/TEXT、独立缓存重读、图片渲染；WAF、认证、服务超时单独记录为 BLOCKED，不算网站全流程通过。测试结束用 `cleanup` 只删除本次拥有且未被用户修改的短源/测试书，保留旧验证源、原书和原缓存。
 

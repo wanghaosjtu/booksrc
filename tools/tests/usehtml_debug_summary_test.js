@@ -53,3 +53,9 @@ test('echoed request source is not a runtime exception, but real failures beside
 test('empty or keyword debug keys cannot erase actual exception names',()=>{
   for(const key of ['', 'SyntaxError'])assert(summarizeDebug({opened:true,closeCode:1000,messages:['SyntaxError: actual bug']},key).isError);
 });
+test('the native coroutine timeout remains visible after a normal WS close',()=>{
+  const summary=summarizeDebug({opened:true,closeCode:1000,timedOut:false,
+    messages:['kotlinx.coroutines.TimeoutCancellationException: Timed out waiting for 60000 ms']},'--https://example.test/health');
+  assert(summary.isError&&!summary.contentFinished&&!summary.timedOut);
+  assert.match(summary.errors[0],/TimeoutCancellationException.*60000 ms/);
+});

@@ -140,6 +140,35 @@ test('audited browser loaders migrate whole programs, preserve options, and leav
   assert(m.simplifyWeb(old+'\nwindow.customState=42;',{},COMMIT).includes('window.customState = 42'));
   assert(m.simplifyWeb(code+'\nwindow.customState=42;',{},COMMIT).includes('window.customState = 42'));
 });
+test('audited nested Readability moves to common while its manual helper and strict errors survive',()=>{
+  const archived=JSON.parse(fs.readFileSync(path.join(ROOT,'booksource/BookSource_X6_legado-E-2.json'),'utf8'));
+  const pma=archived.find(s=>s.bookSourceUrl==='https://www.productmarketingalliance.com/search');
+  const original=m.parse(stripCommon(pma.jsLib)).body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='auto_clean_up');
+  const old=m.js(original),strict=m.simplifyProgram(old,{}, {protectedNames:new Set(['auto_clean_up'])});
+  for(const code of [old,strict]){
+    const source=convert({bookSourceName:'Manual browser helper',bookSourceUrl:'https://pma.test',jsLib:code});
+    assert(source.jsLib.includes('function auto_clean_up()'));
+    assert(source.jsLib.includes('window.legadoCommon.browserReadable(document, true)'));
+    assert(!source.jsLib.includes('Readability.prototype'));
+    assert(Buffer.byteLength(source.jsLib)<1500);
+    assert.deepEqual(convert(source),source);
+    const next='fedcba9876543210fedcba9876543210fedcba98';
+    const upgraded=m.simplifySource(source,next,runtime);
+    assert(upgraded.jsLib.includes(next)&&!upgraded.jsLib.includes(COMMIT));
+    const {scope,requests}=browserScope('({browserReadable:function(doc,strict){if(strict!==true)throw new Error("not strict");return {content:"clean article"};}})');
+    vm.runInContext(source.jsLib,scope);
+    assert.equal(vm.runInContext('auto_clean_up()',scope),undefined);
+    assert.equal(vm.runInContext('auto_clean_up()',scope),undefined);
+    assert.equal(requests.length,1);
+    assert.equal(scope.document.body.innerHTML,'clean article');
+    const error=new TypeError('original browser error');
+    scope.window.legadoCommon.browserReadable=()=>{throw error;};
+    assert.throws(()=>vm.runInContext('auto_clean_up()',scope),e=>e===error);
+  }
+  const edited=m.parse(old).body[0];edited.body.body.push(m.parse('window.customManualHook();').body[0]);
+  const kept=convert({bookSourceName:'Edited helper',bookSourceUrl:'https://pma.test',jsLib:m.js(edited)});
+  assert(kept.jsLib.includes('Readability.prototype')&&kept.jsLib.includes('window.customManualHook()'));
+});
 test('empty and strict error catches expose the original error rather than fabricate empty data',()=>{
   for(const [code,options]of [['try{throw new TypeError("real bug");}catch(e){}',{}],['try{throw new TypeError("real bug");}catch(e){result="[]";}',{errorPolicy:'strict'}]]){
     const out=m.simplifyProgram(code,{},options);assert(!out.includes('catch'));

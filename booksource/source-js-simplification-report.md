@@ -16,7 +16,7 @@
 - 收尾审计发现 IEEE 三个网络 catch 仍豁免所有 SyntaxError，已改为直接 networkError：ajax/cache 的 SyntaxError 和 TypeError 均原样抛出。只有明确的外部 JSON 解码使用 common.serviceJson；无效服务数据返回 null 并记录通用诊断，缓存 JSON.parse 仍报错。签名 URL 的字符逐字不变。
 - common 的网络错误边界也保留 null/undefined 等原始抛出值，不生成二次 TypeError。调试工具排除输入请求 URL 的回显后再判断错误、完成标记及 HTML 计数；故意构造的测试异常不再被回显误判，真实运行异常仍报错。
 
-当前公共发布：`0fa34494c322b71172bd5e11f1897a570c319364`，父提交 `16908f51298880d881471b20b828d9961492efb6`，两个补充发布都只修改 `booksource/runtime/legado-shared-runtime.js`。没有发布 sites 模块、工作分支、手机源或凭据。固定 raw URL 已下载并逐字节一致，SHA-256：`405cc00a865fa357a57830c74670abf921c02f7a16a87ec213538789bceaf677`。首版 v3 公共 SHA 为 `2a746411dff84335ff5e6fe249d2dfdd2cb42d0e`（其父为 `09ab5cf52b7d089b618583af9ca98c16e4676116`），旧固定 URL 不受补丁影响。
+当前公共发布：`47c94d927ecbefbea6c3f828ecdb522918bd2b5d`，父提交 `0fa34494c322b71172bd5e11f1897a570c319364`，只修改 `booksource/runtime/legado-shared-runtime.js`。没有发布 sites 模块、工作分支、手机源或凭据。固定 raw URL 已下载并逐字节一致，94,366 bytes、SHA-256：`4b7ad2874b146b1e3f1602a3b619749f0bdc82155db333d059dd09f36c59780f`。此前 `0fa3449…` 的父为 `16908f51298880d881471b20b828d9961492efb6`，raw SHA-256 为 `405cc00a865fa357a57830c74670abf921c02f7a16a87ec213538789bceaf677`；首版 v3 公共 SHA 为 `2a746411dff84335ff5e6fe249d2dfdd2cb42d0e`（其父为 `09ab5cf52b7d089b618583af9ca98c16e4676116`）。旧固定 URL 不受补丁影响。最新补审见文末。
 
 ## 体积与保全
 
@@ -108,3 +108,19 @@ localhost 的 Native WebView 没有返回：嵌套 bodyJs、正文规则 `java.w
 本轮按 `email-followup` 完整读取技能、定位脚本并验证 Python 3.12.3；只读 doctor 仍返回 **Outlook MCP HTTP 401**。预检不通过即停止邮件流程：没有创建请求 STATE、没有 await_owner/worker、没有请示或结果邮件、没有修改认证/全局配置。需要本人通过 console 恢复手机后继续。
 
 私有证据均在 `booksource/.usehtml-validation-phone/`，目录 700/文件 600：`source-js-simplification-20261108-local-v3-run1/` 是首阶段备份/候选，已被 `source-js-simplification-20261108-local-v3-run2/` 的最新完整备份/108 候选替代，不能再部署 run1。短样本证据为 `source-js-simplification-20261108-local-v3-smoke1/`、`source-js-simplification-20261108-local-v3-web2/` 和 `source-js-simplification-20261108-10-92-web-v3-1/`，均已清理。恢复后先确认手机没有用户新改动；有则新建完整备份/重新生成，不复用旧目录的 --write。
+
+## 2026-11-08 补审：漏网 Readability 与原生超时窗口
+
+PMA search 的 jsLib 仍有未被规则调用、但供手动调试的 `auto_clean_up`，其中内联约 43 KB Readability。其 62 个 prototype 成员与公共库只差三处先前精简掉的吞错 catch，构造器相同。现按原始/精简后完整 AST 指纹替换为小委托函数：保留名称、原文 DOM 操作与 module.exports，使用公共 browserReadable 的 strict 模式；未知修改保留原函数。普通 webClean 的第三方畸形属性兼容处理不变。没有只因该函数暂无规则调用就删除公开调试入口。
+
+PMA jsLib 从 45,532 降至 2,419 bytes；全部 108 源当前总对象量 502,891 bytes，相对原始 5,020,914 bytes 减少 **89.98%**。相对 `f9abef9`，统一替换固定 SHA 后只有 PMA 的 jsLib 有语义差异，其余源字段原样保全。38 UI、34 标准 login、28 loginCheckJs 仍为公共调用；剩余 15 个 loginUrl 是 13 个真实站点 URL 和 2 个自定义脚本，未冒充通用设置替换。正式 usehtml 统计仍只有 IEEE 1 源，未改变 Science 或其他源的默认显示模式。
+
+新增真实隔离 Chrome 对照：旧 helper 与新 helper 连续调用两次后的正文 DOM 逐字相同，标题/段落/图片/锚点保全，公共库只读取一次，module.exports 仍为函数。URL、title getter、setAttribute 三种原始 TypeError 均按对象身份原样抛出；普通 webClean 保留原第三方兼容行为。未知附加代码、固定 SHA 升级和重建幂等单独覆盖。新 SHA 生成后的最新完整回归为 **100 tests、0 fail/skip**，真实 Rhino/Jsoup/Kotlin/Formatter/NetworkUtils 仍为 1488 checks、969 段规则/UI action 编译；108 源 validator（54 正式翻译源、48 HTML/6 JSON TOC）与 4 项同步回归均通过。
+
+补审发现先前无库 Native 对照的 WS 客户端仅等 25 秒，早于 BackstageWebView 默认 60 秒；URL 的 timeout 实际只约束 HTTP 读取。工具已去掉误导的 HTTP timeout 参数，两个 Native 分支均留 75 秒，且调试摘要保留 TimeoutCancellationException。新独立样本访问手机自身 HTTP、不加载库或外网，在 **60,296 ms** 正常关闭 WS 并返回 `kotlinx.coroutines.TimeoutCancellationException: Timed out waiting for 60000 ms`；客户端 timedOut=false、没有 browser metrics、正文未完成。这是真实 Native 期限到期，而不是再次把客户端取消当根因证明。具体 WebView 未回调原因仍不明，尚需本人恢复 App；没有把它归因于公共库下载。
+
+公共发布 `47c94d9…` 只推进 common-runtime，raw 与已测试文件逐字节一致。localhost 的新 SHA 正式 importScript 短样本 **1,349 ms**、全部指标通过，新增 browserReadable API 在 Android 实际初始化；调用者隔离、TeX/规则解析、SVG 别名、相对 URI、HTML 解包/重复处理、登录/UI 和原始异常均通过。它不证明 Native 浏览器调用、新书缓存或新 EPUB；旧 `0fa3449…` 的缓存/图片证据仍只标注旧版本。
+
+最新完整 109 原源备份与 108 候选在 `source-js-simplification-20261108-local-v3-readable1/`，含已生成的 IEEE/Nature/求是三源 priority 候选及公共发布逐字节验证；替代 run1/run2，旧候选不能部署。独立保全检查 3299 项，108 源身份/启用/类型/登录变量/非 JS 字段保全，canonical 与 phone candidates 重建均幂等。当前只有 IEEE 正文及七猫分类数据超过 10 KB，不含嵌套 Readability 副本。Native 期限证据在 `source-js-simplification-20261108-local-v3-native-window1/`，新 SHA 短样本在 `source-js-simplification-20261108-local-v3-readable-smoke1/`；没有创建书籍或部署 canonical，两个短源已分别 cleanup 并完整回读验证原 109 源不变。恢复后仍需先核对用户是否修改源，有变化则新建备份/候选，不复用 --write。
+
+email-followup 仍按已有 401 预检失败停止，未重复轮询 Outlook、未启动等待/worker、未发请示或结果邮件。Native/三站点/108 源部署未完成，不把公共发布和本地/短样本通过当作目标完成。

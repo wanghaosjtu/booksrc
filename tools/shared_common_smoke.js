@@ -12,6 +12,9 @@ const {loader} = require('./migrate_shared_common');
 const {browserScript} = require('./simplify_source_js');
 const HEALTH = 'http://127.0.0.1:1122/getJsSourceApiTokenRequired';
 const VERSION = '3';
+// AnalyzeUrl's timeout option controls HTTP reads, not BackstageWebView's
+// native 60-second deadline. Leave time for that error to reach the WS client.
+const NATIVE_WEBVIEW_CLIENT_TIMEOUT = 75000;
 const guard = vm.createContext({});
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'booksource/runtime/legado-usehtml-rule-json.js'), 'utf8'), guard);
 const safeJson = value => guard.useHtmlRuleJson(value);
@@ -113,6 +116,7 @@ var smokePrimitiveErrors=false;
 try{api.networkError(null,java);}catch(e){smokePrimitiveErrors=e===null;}
 var smokeMetrics = {kind:'Android-pinned-common-short-smoke',initiallyLoaded:smokeLoadedInitially,
   loaded:!!commonJs,version:String(api.version),
+  browserReadable:typeof api.browserReadable==='function',
   callerIsolation:smokeFirst==='A:first'&&smokeSecond==='B:second',
   siteFormulaConfig:smokeSrc.indexOf('/svg.latex.svg?')>=0&&smokeDoc.select('inline-formula').size()===0,
   parserAccepted:smokeParserAccepted,parserCalls:smokeParserCalls,exactTex:smokeExactTex&&smokeTexResult===smokeTex,
@@ -176,7 +180,7 @@ async function smoke(dir) {
   const summary=summarizeDebug(result,state.key);
   const match=result.messages.join('\n').match(/COMMON-SMOKE-METRICS (\{[^\n]+\})/);
   const metrics=match?JSON.parse(match[1]):null;
-  const passed=!summary.isError&&metrics&&metrics.loaded&&metrics.version===VERSION&&metrics.callerIsolation
+  const passed=!summary.isError&&metrics&&metrics.loaded&&metrics.version===VERSION&&metrics.browserReadable&&metrics.callerIsolation
     &&metrics.siteFormulaConfig&&metrics.parserAccepted&&metrics.parserCalls>0&&metrics.exactTex
     &&metrics.svgAlias&&metrics.headingsWrapped&&metrics.imagesOutsideHtml
     &&metrics.imageUris&&metrics.htmlExtraction&&metrics.repeatedHtml
@@ -257,13 +261,13 @@ function browserRequest(commit,control=false){
     +'paragraphs:document.querySelectorAll("p").length,title:document.title.indexOf("COMMON-WEBVIEW-TITLE")>=0,readable:text.indexOf("COMMON-WEBVIEW-PARAGRAPH")>=0,noiseRemoved:text.indexOf("COMMON-NAVIGATION-NOISE")<0&&text.indexOf("COMMON-FOOTER-NOISE")<0,noDuplicateTranslation:text.indexOf("a native browser prepares the document")>=0};'
     +'return "COMMON-CONTROL-WEBVIEW "+JSON.stringify(metrics);'
     +'}catch(error){return "COMMON-CONTROL-WEBVIEW "+JSON.stringify({kind:"native-URL-WebView-error",error:String(error)});}})()';
-  return '--'+HEALTH+','+safeJson({webView:true,webJs:script,timeout:40000});
+  return '--'+HEALTH+','+safeJson({webView:true,webJs:script});
 }
 async function webView(dir,control=false){
   dir=privateDirectory(dir);
   const state=JSON.parse(fs.readFileSync(path.join(dir,'smoke-state.json'),'utf8'));
   const key=browserRequest(state.commit,control);
-  const result=await client(dir).debug(state.id,key,control?25000:55000);
+  const result=await client(dir).debug(state.id,key,NATIVE_WEBVIEW_CLIENT_TIMEOUT);
   privateWrite(dir,'smoke-webview-debug-'+Date.now()+'.json',result);
   const summary=summarizeDebug(result,key);
   const match=result.messages.join('\n').match(/COMMON-CONTROL-WEBVIEW (\{[^\n]+\})/);
@@ -418,5 +422,5 @@ async function main() {
   console.log(JSON.stringify(result,null,2));
   if(result.passed===false)process.exitCode=1;
 }
-module.exports={build,client,safeJson,browserRequest,HEALTH};
+module.exports={build,client,safeJson,browserRequest,HEALTH,NATIVE_WEBVIEW_CLIENT_TIMEOUT};
 if(require.main===module)main().catch(error=>{console.error(JSON.stringify(errorDetails(error)));process.exitCode=1;});
