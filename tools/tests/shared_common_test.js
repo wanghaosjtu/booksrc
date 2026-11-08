@@ -366,17 +366,22 @@ test('actual Rhino, Jsoup and Kotlin rule parser verify closures, HTML and formu
   const strings=extensions.slice(extensions.indexOf('fun String?.isAbsUrl()'),extensions.indexOf('fun String?.isJson()'));
   const pattern=fs.readFileSync(path.join(ROOT,'legado/app/src/main/java/io/legado/app/constant/AppPattern.kt'),'utf8').match(/val dataUriRegex = Regex\([^\n]+\)/)[0];
   const params=fs.readFileSync(path.join(ROOT,'legado/app/src/main/java/io/legado/app/model/analyzeRule/AnalyzeUrl.kt'),'utf8').match(/val paramPattern: Pattern = Pattern\.compile\([^\n]+\)/)[0];
-  const dependencies=path.join(dir,'FormatterDependencies.kt'),analyze=path.join(dir,'AnalyzeUrl.kt');
+  const chapterSource=fs.readFileSync(path.join(ROOT,'legado/app/src/main/java/io/legado/app/data/entities/BookChapter.kt'),'utf8');
+  const chapterMethod=chapterSource.slice(chapterSource.indexOf('    fun getAbsoluteURL(): String {'),chapterSource.indexOf('    private fun ensureTitleMD5Init()'));
+  assert(chapterMethod.includes('AnalyzeUrl.paramPattern.matcher(url)'),'actual chapter URL option handling extraction failed');
+  const dependencies=path.join(dir,'FormatterDependencies.kt'),analyze=path.join(dir,'AnalyzeUrl.kt'),chapter=path.join(dir,'BookChapter.kt');
   fs.writeFileSync(dependencies,'package io.legado.app.utils\nimport java.net.URL\n'+pattern+'\n'+strings+'\nobject NetworkUtils {\n'+methods+'}\n'
     +'fun Exception.printOnDebug(){throw this}\nobject AppLog {fun put(message:String,error:Exception){throw error}}\n');
   fs.writeFileSync(analyze,'package io.legado.app.model.analyzeRule\nimport java.util.regex.Pattern\nobject AnalyzeUrl { '+params+' }\n');
+  fs.writeFileSync(chapter,'package io.legado.app.data.entities\nimport io.legado.app.model.analyzeRule.AnalyzeUrl\nimport io.legado.app.utils.NetworkUtils\n'
+    +'class BookChapter(var baseUrl:String,var url:String,var title:String,var isVolume:Boolean){\n'+chapterMethod+'}\n');
   const canonical=path.join(dir,'canonical-v3.json');
   const current=JSON.parse(fs.readFileSync(path.join(ROOT,'booksource/legado-book-sources-current.json'),'utf8'));
   fs.writeFileSync(canonical,JSON.stringify(build(current,current,COMMIT).sources),{mode:0o600});
   run(java, ['-cp', path.join(compiler, '*'), 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler', '-no-stdlib', '-no-reflect',
     '-jvm-target', '1.8', '-classpath', [stdlib, ...annotations].join(path.delimiter), '-d', dir,
     path.join(ROOT, 'legado/app/src/main/java/io/legado/app/model/analyzeRule/RuleAnalyzer.kt'),
-    path.join(ROOT,'legado/app/src/main/java/io/legado/app/utils/HtmlFormatter.kt'),dependencies,analyze]);
+    path.join(ROOT,'legado/app/src/main/java/io/legado/app/utils/HtmlFormatter.kt'),dependencies,analyze,chapter]);
   const cp = [dir, stdlib, jsoup, engine, ...annotations].join(path.delimiter);
   run(javac, ['-encoding', 'UTF-8', '-cp', cp, '-d', dir, path.join(ROOT, 'tools/tests/SharedCommonRuntime.java')]);
   const r = run(java, ['-cp', cp, 'SharedCommonRuntime',

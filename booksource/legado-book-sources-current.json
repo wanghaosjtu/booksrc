@@ -95,10 +95,10 @@
     "respondTime": 180000,
     "ruleBookInfo": {
       "author": "h2.journal-issue__title@text",
-      "canReName": "h2.journal-issue__title@text\n@js:\nbook.name + \" \" + result",
+      "canReName": "h2.journal-issue__title@text\n@js:book.name + \" \" + result;",
       "init": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: remove_selector\n});\nresult;\n</js>",
       "intro": "//div[@id=\"journal-issue-details\"]",
-      "name": "h2.journal-issue__title@text\n@js:\nbook.name + \" \" + result"
+      "name": "h2.journal-issue__title@text\n@js:book.name + \" \" + result;"
     },
     "ruleContent": {
       "content": "@css:main@html||[data-extent=\"article-wrapper\"]@html||article@html\n<js>\nvar d = org.jsoup.Jsoup.parseBodyFragment(String(result || \"\"));\nd.select(\"script,noscript,style,nav,aside,footer,#donation-blackbud-modal,.meta-panel,.to-authors-affiliations,.core-self-citation,.info-panel,.pb-ad,.orcid-id,[data-core-nav=header],#backmatter,.core-collateral,template,div.audio-player,div.mb-2x,form.mb-4,.multi-search\").remove();\nvar best = d.select(\"[data-extent=article-body],.article-body,.article-body__content,.article-content,#article-body\").first();\nif (best) result = \"\" + best.html(); else result = \"\" + d.body().html();\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>",
@@ -120,7 +120,7 @@
       "chapterList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\n//div[@class=\"card-content\"]||//div[@class=\"card-header\"]",
       "chapterName": "//div[@class=\"card-content\"]//h3/a/text()||//h2/a/text()",
       "chapterUrl": "//div[@class=\"card-content\"]//h3/a/@href||//h2/a/@href##$##,{\"webView\":true}",
-      "isVip": "<js>\njava.log(result);\n</js>\nI[data-original-title='No Access']@text\n@js:\n//java.log(\"vip:\"+result)\nif(result) {\ntrue}\nelse{ false}",
+      "isVip": "<js>\njava.log(result);\n</js>\nI[data-original-title='No Access']@text\n@js:if (result) {\n  true;\n} else {\n  false;\n}",
       "nextTocUrl": "li.page-item a@href",
       "updateTime": "//div[@class=\"card-content\"]//time/text()"
     },
@@ -177,7 +177,7 @@
     "respondTime": 180000,
     "ruleBookInfo": {
       "author": "@js:'United States Department of State';",
-      "coverUrl": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar SPOKES = \"https://www.state.gov/bureaus-offices/under-secretary-for-public-diplomacy-and-public-affairs/bureau-of-global-public-affairs/office-of-the-spokesman/\";\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar img = d.select(\".bureau-header__image img,.country-header__bg img,.wp-block-cover__image-background\").first();\nif (!img && (String(baseUrl || \"\").indexOf(\"/press-releases/\") >= 0 || String(baseUrl || \"\").indexOf(\"/department-press-briefings/\") >= 0)) {\n  var sd = org.jsoup.Jsoup.parse(String(java.ajax(SPOKES)));\n  img = sd.select(\".wp-block-cover__image-background\").first();\n}\nvar u = img ? String(img.attr(\"src\") || img.attr(\"data-src\") || img.attr(\"data-lazy-src\")) : \"\";\nif (u && u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else if (u.charAt(0) === \"/\") u = \"https://www.state.gov\" + u;\n}\nif (!u) {\n  {\n    u = String(book.coverUrl || \"\");\n  }\n}\nu || DEFAULT;",
+      "coverUrl": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar SPOKES = \"https://www.state.gov/bureaus-offices/under-secretary-for-public-diplomacy-and-public-affairs/bureau-of-global-public-affairs/office-of-the-spokesman/\";\nvar imageBase = \"\";\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar img = d.select(\".bureau-header__image img,.country-header__bg img,.wp-block-cover__image-background\").first();\nif (!img && (String(baseUrl || \"\").indexOf(\"/press-releases/\") >= 0 || String(baseUrl || \"\").indexOf(\"/department-press-briefings/\") >= 0)) {\n  var sd = org.jsoup.Jsoup.parse(String(java.ajax(SPOKES)));\n  img = sd.select(\".wp-block-cover__image-background\").first();\n  imageBase = SPOKES;\n}\nvar u = img ? String(img.attr(\"src\") || img.attr(\"data-src\") || img.attr(\"data-lazy-src\")) : \"\";\nif (u && imageBase && !(/^(?:[a-z][a-z0-9+.-]*:|#)/i).test(u)) u = common(java).resolveRequest(u, imageBase);\nif (!u) {\n  {\n    u = String(book.coverUrl || \"\");\n  }\n}\nu || DEFAULT;",
       "intro": "@js:'';",
       "kind": "@js:java.get('BOOK_KIND') || 'Release';",
       "name": "h1@text\n<js>\nif (result) result = common(java).TT(result, java);\nresult;\n</js>",
@@ -190,9 +190,9 @@
     },
     "ruleExplore": {
       "author": "@js:'United States Department of State';",
-      "bookList": "@js:var cat = '';\nif (baseUrl.indexOf('newsroom') >= 0) cat = 'news'; else if (baseUrl.indexOf('countries-and-areas-list') >= 0) cat = 'countries'; else if (baseUrl.indexOf('bureaus-and-offices-list') >= 0) cat = 'bureaus';\nvar doc = org.jsoup.Jsoup.parse(result);\nvar books = [];\nif (cat === 'news') {\n  books.push(['https://www.state.gov/press-releases/', 'Press Releases']);\n  books.push(['https://www.state.gov/department-press-briefings/', 'Department Press Briefings']);\n  books.push(['https://www.state.gov/remarks-secretary-rubio/', 'From the Secretary']);\n  books.push(['https://www.state.gov/public-schedule/', 'Public Schedules']);\n  books.push(['https://www.state.gov/todays-briefing-schedule/', 'Briefing Schedule']);\n} else if (cat === 'countries') {\n  var bureauData = [{\n    name: 'Bureau of African Affairs (AF)',\n    url: 'https://www.state.gov/bureau-of-african-affairs-releases/'\n  }, {\n    name: 'Bureau of East Asian and Pacific Affairs (EAP)',\n    url: 'https://www.state.gov/bureau-of-east-asian-and-pacific-affairs-releases/'\n  }, {\n    name: 'Bureau of European and Eurasian Affairs (EUR)',\n    url: 'https://www.state.gov/bureau-of-european-and-eurasian-affairs-releases/'\n  }, {\n    name: 'Bureau of Near Eastern Affairs (NEA)',\n    url: 'https://www.state.gov/bureau-of-near-eastern-affairs-releases/'\n  }, {\n    name: 'Bureau of South and Central Asian Affairs (SCA)',\n    url: 'https://www.state.gov/bureau-of-south-and-central-asian-affairs-releases/'\n  }, {\n    name: 'Bureau of Western Hemisphere Affairs (WHA)',\n    url: 'https://www.state.gov/bureau-of-western-hemisphere-affairs-releases/'\n  }];\n  for (var i = 0; i < bureauData.length; i++) {\n    books.push([bureauData[i].url, bureauData[i].name]);\n  }\n  var seen = {};\n  var allLinks = doc.select('a[href*=\"/countries-areas/\"],a[href*=\"/countries-areas-archive/\"]');\n  for (var j = 0; j < allLinks.size(); j++) {\n    var a = allLinks.get(j);\n    var href = a.attr('href') || '';\n    var name = a.text().trim();\n    if (!href || !name) continue;\n    if (href.indexOf('list') >= 0) continue;\n    if (name.length > 50) continue;\n    if (name === 'Countries & Areas') continue;\n    if (href.indexOf('http') !== 0) href = 'https://www.state.gov' + href;\n    var key = href.toLowerCase();\n    if (seen[key]) continue;\n    seen[key] = true;\n    books.push([href, name]);\n  }\n  books.sort(function (a, b) {\n    var na = a[1].toLowerCase(), nb = b[1].toLowerCase();\n    if (na < nb) return -1;\n    if (na > nb) return 1;\n    return 0;\n  });\n} else if (cat === 'bureaus') {\n  var targets = {\n    'd': 'Deputy Secretary of State (D)',\n    'd-mr': 'Deputy Secretary of State for Management and Resources (D-MR)',\n    't': 'Under Secretary for Arms Control and International Security (T)',\n    'e': 'Under Secretary for Economic Affairs (E)',\n    'f': 'Under Secretary for Foreign Assistance, Humanitarian Affairs, and Religious Freedom (F)',\n    'm': 'Under Secretary for Management (M)',\n    'p': 'Under Secretary for Political Affairs (P)',\n    'r': 'Under Secretary for Public Diplomacy and Public Affairs (R)'\n  };\n  var order = ['d', 'd-mr', 't', 'e', 'f', 'm', 'p', 'r'];\n  for (var oi = 0; oi < order.length; oi++) {\n    var id = order[oi];\n    var section = doc.select('#' + id).first();\n    if (!section) continue;\n    var el = section;\n    var mainAdded = false;\n    while (true) {\n      el = el.nextElementSibling();\n      if (!el) break;\n      var elId = '' + el.id();\n      if (elId && targets[elId] !== undefined) break;\n      var btns = el.select('.wp-block-button__link');\n      for (var k = 0; k < btns.size(); k++) {\n        var btn = btns.get(k);\n        var href = btn.attr('href') || '';\n        var txt = btn.text().trim();\n        if (!href || !txt) continue;\n        if (href.indexOf('govdelivery.com') >= 0 || href.indexOf('x.com') >= 0 || href.indexOf('twitter.com') >= 0) continue;\n        if (txt.indexOf('Subscribe') === 0 || txt.indexOf('Follow') === 0) continue;\n        if (href.indexOf('http') !== 0) href = 'https://www.state.gov' + href;\n        if (txt.indexOf('View ') !== 0) continue;\n        if (!mainAdded) {\n          var coverImg = section.select(\"img\").first();\n          var sectionCover = coverImg ? String(coverImg.attr(\"src\") || coverImg.attr(\"data-src\") || coverImg.attr(\"data-lazy-src\")) : \"\";\n          books.push([href, targets[id], sectionCover]);\n          mainAdded = true;\n        } else {\n          var subName = txt.replace(/^View\\s+/, '');\n          books.push([href, targets[id] + ' - ' + subName]);\n        }\n      }\n    }\n  }\n}\nbooks;",
+      "bookList": "@js:var cat = '';\nif (baseUrl.indexOf('newsroom') >= 0) cat = 'news'; else if (baseUrl.indexOf('countries-and-areas-list') >= 0) cat = 'countries'; else if (baseUrl.indexOf('bureaus-and-offices-list') >= 0) cat = 'bureaus';\nvar doc = org.jsoup.Jsoup.parse(result);\nvar books = [];\nif (cat === 'news') {\n  books.push(['https://www.state.gov/press-releases/', 'Press Releases']);\n  books.push(['https://www.state.gov/department-press-briefings/', 'Department Press Briefings']);\n  books.push(['https://www.state.gov/remarks-secretary-rubio/', 'From the Secretary']);\n  books.push(['https://www.state.gov/public-schedule/', 'Public Schedules']);\n  books.push(['https://www.state.gov/todays-briefing-schedule/', 'Briefing Schedule']);\n} else if (cat === 'countries') {\n  var bureauData = [{\n    name: 'Bureau of African Affairs (AF)',\n    url: 'https://www.state.gov/bureau-of-african-affairs-releases/'\n  }, {\n    name: 'Bureau of East Asian and Pacific Affairs (EAP)',\n    url: 'https://www.state.gov/bureau-of-east-asian-and-pacific-affairs-releases/'\n  }, {\n    name: 'Bureau of European and Eurasian Affairs (EUR)',\n    url: 'https://www.state.gov/bureau-of-european-and-eurasian-affairs-releases/'\n  }, {\n    name: 'Bureau of Near Eastern Affairs (NEA)',\n    url: 'https://www.state.gov/bureau-of-near-eastern-affairs-releases/'\n  }, {\n    name: 'Bureau of South and Central Asian Affairs (SCA)',\n    url: 'https://www.state.gov/bureau-of-south-and-central-asian-affairs-releases/'\n  }, {\n    name: 'Bureau of Western Hemisphere Affairs (WHA)',\n    url: 'https://www.state.gov/bureau-of-western-hemisphere-affairs-releases/'\n  }];\n  for (var i = 0; i < bureauData.length; i++) {\n    books.push([bureauData[i].url, bureauData[i].name]);\n  }\n  var seen = {};\n  var allLinks = doc.select('a[href*=\"/countries-areas/\"],a[href*=\"/countries-areas-archive/\"]');\n  for (var j = 0; j < allLinks.size(); j++) {\n    var a = allLinks.get(j);\n    var href = a.attr('href') || '';\n    var name = String(a.text()).trim();\n    if (!href || !name) continue;\n    if (href.indexOf('list') >= 0) continue;\n    if (name.length > 50) continue;\n    if (name === 'Countries & Areas') continue;\n    var key = common(java).resolveRequest(href, baseUrl).toLowerCase();\n    if (seen[key]) continue;\n    seen[key] = true;\n    books.push([href, name]);\n  }\n  books.sort(function (a, b) {\n    var na = a[1].toLowerCase(), nb = b[1].toLowerCase();\n    if (na < nb) return -1;\n    if (na > nb) return 1;\n    return 0;\n  });\n} else if (cat === 'bureaus') {\n  var targets = {\n    'd': 'Deputy Secretary of State (D)',\n    'd-mr': 'Deputy Secretary of State for Management and Resources (D-MR)',\n    't': 'Under Secretary for Arms Control and International Security (T)',\n    'e': 'Under Secretary for Economic Affairs (E)',\n    'f': 'Under Secretary for Foreign Assistance, Humanitarian Affairs, and Religious Freedom (F)',\n    'm': 'Under Secretary for Management (M)',\n    'p': 'Under Secretary for Political Affairs (P)',\n    'r': 'Under Secretary for Public Diplomacy and Public Affairs (R)'\n  };\n  var order = ['d', 'd-mr', 't', 'e', 'f', 'm', 'p', 'r'];\n  for (var oi = 0; oi < order.length; oi++) {\n    var id = order[oi];\n    var section = doc.select('#' + id).first();\n    if (!section) continue;\n    var el = section;\n    var mainAdded = false;\n    while (true) {\n      el = el.nextElementSibling();\n      if (!el) break;\n      var elId = '' + el.id();\n      if (elId && targets[elId] !== undefined) break;\n      var btns = el.select('.wp-block-button__link');\n      for (var k = 0; k < btns.size(); k++) {\n        var btn = btns.get(k);\n        var href = btn.attr('href') || '';\n        var txt = String(btn.text()).trim();\n        if (!href || !txt) continue;\n        if (href.indexOf('govdelivery.com') >= 0 || href.indexOf('x.com') >= 0 || href.indexOf('twitter.com') >= 0) continue;\n        if (txt.indexOf('Subscribe') === 0 || txt.indexOf('Follow') === 0) continue;\n        if (txt.indexOf('View ') !== 0) continue;\n        if (!mainAdded) {\n          var coverImg = section.select(\"img\").first();\n          var sectionCover = coverImg ? String(coverImg.attr(\"src\") || coverImg.attr(\"data-src\") || coverImg.attr(\"data-lazy-src\")) : \"\";\n          books.push([href, targets[id], sectionCover]);\n          mainAdded = true;\n        } else {\n          var subName = txt.replace(/^View\\s+/, '');\n          books.push([href, targets[id] + ' - ' + subName]);\n        }\n      }\n    }\n  }\n}\nbooks;",
       "bookUrl": "@js:result[0];",
-      "coverUrl": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar u = result && result[2] ? String(result[2]) : \"\";\nif (u && u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else if (u.charAt(0) === \"/\") u = \"https://www.state.gov\" + u;\n}\nresult = u || DEFAULT;",
+      "coverUrl": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar u = result && result[2] ? String(result[2]) : \"\";\nresult = u || DEFAULT;",
       "kind": "@js:var cat = '';\nif (baseUrl.indexOf('newsroom') >= 0) cat = 'news'; else if (baseUrl.indexOf('countries-and-areas-list') >= 0) cat = 'countries'; else if (baseUrl.indexOf('bureaus-and-offices-list') >= 0) cat = 'bureaus';\ncat === 'news' ? 'News' : cat === 'countries' ? 'Country & Area' : 'Bureau';",
       "name": "@js:result[1];"
     },
@@ -200,15 +200,15 @@
       "bookList": "@js:[1];",
       "bookUrl": "@js:'https://www.state.gov/?s=' + encodeURIComponent(java.get('key') || '');",
       "checkKeyWord": "diplomacy",
-      "coverUrl": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar img = d.select(\".bureau-header__image img,.country-header__bg img,.wp-block-cover__image-background\").first();\nvar u = img ? String(img.attr(\"src\") || img.attr(\"data-src\") || img.attr(\"data-lazy-src\")) : \"\";\nif (u && u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else if (u.charAt(0) === \"/\") u = \"https://www.state.gov\" + u;\n}\nu || DEFAULT;",
+      "coverUrl": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar img = d.select(\".bureau-header__image img,.country-header__bg img,.wp-block-cover__image-background\").first();\nvar u = img ? String(img.attr(\"src\") || img.attr(\"data-src\") || img.attr(\"data-lazy-src\")) : \"\";\nu || DEFAULT;",
       "kind": "@js:'Search Result';",
       "name": "@js:'Search: ' + (java.get('key') || '');"
     },
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\nul.collection-results li.collection-result",
       "chapterName": "a@text\n<js>\nif (result && !(/[一-鿿]/).test(String(result))) result = common(java).TT(result, java, cache);\nresult;\n</js>",
-      "chapterUrl": "a@href\n<js>\nvar url = String(result || '');\nvar nl = url.indexOf('\\n');\nif (nl >= 0) url = url.substring(0, nl);\nurl = url.trim();\nif (url && url.indexOf('http') !== 0) url = 'https://www.state.gov' + url;\nurl;\n</js>",
-      "nextTocUrl": ".pagination a.next@href\n@js:\nvar raw=result;if(Array.isArray(raw))raw=raw[0]||\"\";var u=String(raw||\"\").trim();\nvar current=String(baseUrl||\"\");var m=current.match(/\\/page\\/(\\d+)(?:\\/|$|\\?)/i);var page=m?parseInt(m[1],10):1;\nif(page>=10){result=\"\";}else{\n  if(u.charAt(0)===\"[\"&&u.charAt(u.length-1)===\"]\")u=u.substring(1,u.length-1).trim();\n  if(u&&u.indexOf(\"http\")!==0){if(u.indexOf(\"//\")===0)u=\"https:\"+u;else if(u.charAt(0)===\"/\")u=\"https://www.state.gov\"+u;}\n  result=u;\n}",
+      "chapterUrl": "a@href\n<js>\nvar url = String(result || '');\nvar nl = url.indexOf('\\n');\nif (nl >= 0) url = url.substring(0, nl);\nurl = url.trim();\nurl;\n</js>",
+      "nextTocUrl": ".pagination a.next@href\n@js:var raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nvar current = String(baseUrl || \"\");\nvar m = current.match(/\\/page\\/(\\d+)(?:\\/|$|\\?)/i);\nvar page = m ? parseInt(m[1], 10) : 1;\nif (page >= 10) {\n  result = \"\";\n} else {\n  if (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\n  result = u;\n}",
       "updateTime": ".collection-result-meta span[dir=ltr]@text"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);\n'https://www.state.gov/?s=' + encodeURIComponent(key || '');",
@@ -258,7 +258,7 @@
     "ruleContent": {
       "content": "//h1[@id=\"subject_tpc\"]|//div[@class=\"imgList\"]|//div[@class=\"tpc_content\"]\n<js>\nvar remove_selector = ['script', 'main aside', 'span[style*=display:none]', 'img[src*=\"/post/smile\"]'];\nfunction processHtml(inputHtml) {\n  var Jsoup = org.jsoup.Jsoup;\n  var doc = Jsoup.parse(inputHtml);\n  remove_selector.forEach(function (css) {\n    var elements = doc.select(css);\n    elements.forEach(function (element) {\n      element.remove();\n    });\n  });\n  return doc.html();\n}\nvar cleanedHtml = processHtml(result);\ncleanedHtml;\n</js>\n",
       "imageStyle": "FULL",
-      "nextContentUrl": "/a[text()=\"只看楼主\"]/@onclick\n@js:\nif (result.length) {\nurl=result[0]\nmatch=url.match(/'([^']*)'/)\nif (match && match[1]){\n    nextpage=match[1]\n}else{\n    nextpage=''\n}\n}else{\nnextpage=''\n}\nnextpage",
+      "nextContentUrl": "/a[text()=\"只看楼主\"]/@onclick\n@js:if (result.length) {\n  url = result[0];\n  match = url.match(/'([^']*)'/);\n  if (match && match[1]) {\n    nextpage = match[1];\n  } else {\n    nextpage = '';\n  }\n} else {\n  nextpage = '';\n}\nnextpage;",
       "replaceRegex": "",
       "webJs": "result.replaceAll(\"idth>\", \"idth\");"
     },
@@ -665,9 +665,9 @@
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TJ(result, java, cache);\nresult;\n</js>\nresults[0].hits[*].document",
       "chapterName": "$.contentSummary.title",
-      "chapterUrl": "$.contentSummary.href||$.path##$##,{\"webView\":true}\n@js:\nif (!result.toLowerCase().startsWith(\"http\")) {\n            result= \"https://carnegieendowment.org\" + result;\n        }\nresult",
+      "chapterUrl": "$.contentSummary.href||$.path##$##,{\"webView\":true}\n@js:if (!result.toLowerCase().startsWith(\"http\")) {\n  result = \"https://carnegieendowment.org\" + result;\n}\nresult;",
       "nextTocUrl": "@js:per_page = 25;\npages = {{$.results[0].out_of}} / per_page;\npages = Math.min(pages, 200 / per_page + 1);\nlist = [];\nkey = java.get('key');\nfor (p = 2; p <= pages; p = p + 1) {\n  url = 'https://search.production.carnegie.fusionary.io/multi_search?x-typesense-api-key=' + _carnegieTypesenseKey() + ',' + JSON.stringify({\n    \"headers\": {\n      \"accept\": \"application/json, text/plain, */*\",\n      \"accept-language\": \"zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6\",\n      \"cache-control\": \"no-cache\",\n      \"content-type\": \"text/plain\",\n      \"pragma\": \"no-cache\",\n      \"priority\": \"u=1, i\",\n      \"sec-ch-ua\": \"\\\"Not(A:Brand\\\";v=\\\"8\\\", \\\"Chromium\\\";v=\\\"144\\\", \\\"Microsoft Edge\\\";v=\\\"144\\\"\",\n      \"sec-ch-ua-mobile\": \"?0\",\n      \"sec-ch-ua-platform\": \"\\\"Windows\\\"\",\n      \"sec-fetch-dest\": \"empty\",\n      \"sec-fetch-mode\": \"cors\",\n      \"sec-fetch-site\": \"cross-site\"\n    },\n    \"referrer\": \"https://carnegieendowment.org/\",\n    \"body\": JSON.stringify({\n      \"searches\": [{\n        \"query_by\": \"contentSummary.title,contentSummary.contributors.fullName,contentSummary.descriptionRichText\",\n        \"sort_by\": \"contentSummary.publishedAt:desc\",\n        \"highlight_full_fields\": \"contentSummary.title,contentSummary.contributors.fullName,contentSummary.descriptionRichText\",\n        \"collection\": collection,\n        \"q\": key,\n        \"facet_by\": \"contentSummary.typeSimplified,expertsByCenter.global,regions.title,topics.title,year\",\n        \"filter_by\": \"(contentSummary.type:article || contentSummary.type:book || contentSummary.type:commentary || contentSummary.type:event || contentSummary.type:feature || contentSummary.type:inTheMedia || contentSummary.type:legacyinthemedia || contentSummary.type:paper || contentSummary.type:podcast || contentSummary.type:podcastEpisode || contentSummary.type:post || contentSummary.type:posts || contentSummary.type:report || contentSummary.type:research || contentSummary.type:testimony || contentSummary.type:video || contentSummary.type:videos) && centers.id:65282893aebd24030d4f8ec4\",\n        \"max_facet_values\": 500,\n        \"page\": p,\n        \"per_page\": per_page\n      }]\n    }),\n    \"method\": \"POST\",\n    \"mode\": \"cors\",\n    \"credentials\": \"omit\"\n  });\n  list.push(url);\n}\nlist;",
-      "updateTime": "$.topics[*].title\n@js:\ntimestamp = {{$.contentSummary.publishedAt}};\nout = new Date(timestamp).toLocaleString(\"zh-CN\")  + result"
+      "updateTime": "$.topics[*].title\n@js:timestamp = {{$.contentSummary.publishedAt}};\nout = new Date(timestamp).toLocaleString(\"zh-CN\") + result;"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);\njava.put('search', 1);",
     "weight": 2,
@@ -721,9 +721,9 @@
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TJ(result, java, cache);\nresult;\n</js>\nresults[0].hits[*].document",
       "chapterName": "$.contentSummary.title",
-      "chapterUrl": "$.contentSummary.href||$.path\n@js:\nif (!String(result).toLowerCase().startsWith(\"http\")) {\n    result = \"https://carnegieendowment.org\" + result;\n}\nif (!/^https?:\\/\\/([^/]+\\.)?carnegieendowment\\.org(?:\\/|$)/i.test(String(result))) {\n    proxy=source.getLoginInfoMap().get(\"proxyUrl\");\n//    result += ',{\"proxy\":\"http://dept-haow:9090\",\"webView\":true}';\n//    result += ',{\"proxy\":\"'+proxy+ '\"}'\n    result += ',{\"webView\":true}';\n// java.log(\"proxy:\"+result)\n}\nresult",
+      "chapterUrl": "$.contentSummary.href||$.path\n@js:if (!String(result).toLowerCase().startsWith(\"http\")) {\n  result = \"https://carnegieendowment.org\" + result;\n}\nif (!(/^https?:\\/\\/([^/]+\\.)?carnegieendowment\\.org(?:\\/|$)/i).test(String(result))) {\n  proxy = source.getLoginInfoMap().get(\"proxyUrl\");\n  result += ',{\"webView\":true}';\n}\nresult;",
       "nextTocUrl": "@js:per_page = 25;\npages = {{$.results[0].out_of}} / per_page;\npages = Math.min(pages, 200 / per_page + 1);\nlist = [];\nkey = java.get('key');\nfor (p = 2; p <= pages; p = p + 1) {\n  url = toc_url(key, p, per_page);\n  list.push(url);\n}\nlist;",
-      "updateTime": "$.topics[*].title\n@js:\ntimestamp = {{$.contentSummary.publishedAt}};\nout = new Date(timestamp).toLocaleString(\"zh-CN\")  + result\n// out = new Date(timestamp).toLocaleString(\"en_US\")  + result\n// java.log(out)\n"
+      "updateTime": "$.topics[*].title\n@js:timestamp = {{$.contentSummary.publishedAt}};\nout = new Date(timestamp).toLocaleString(\"zh-CN\") + result;"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);\njava.put('search', 1);",
     "weight": 2,
@@ -818,14 +818,14 @@
       "coverUrl": "div#detail img.0@src",
       "intro": "meta[name=\"description\"]@content",
       "name": "meta[name=\"description\"]@content\n<js>\nvar t = String(result || \"\").split(\"-\")[0].trim();\nresult = t;\n</js>",
-      "author": "meta[name=\"author\"]@content||@js:\"求是网\""
+      "author": "meta[name=\"author\"]@content||@js:\"求是网\";"
     },
     "ruleContent": {
       "content": "//div[@class=\"inner\"]\n<js>\nresult = common(java).ltPrepareImages(result, java);\nresult;\n</js>",
       "imageStyle": "FULL"
     },
     "ruleExplore": {
-      "bookList": "- div.booktitle a\n<js>\nvar p = java.get(\"page\");\npage = parseInt(p, 10) || 1;\nvar ele = result[page - 1] || result[0];\nif (!ele) {\n  result = \"\";\n} else {\n  var yearurl = String(ele.attr(\"href\") || \"\");\n  if (yearurl.indexOf(\"http\") !== 0) {\n    var base = String(baseUrl || \"http://www.qstheory.cn/\");\n    if (yearurl.indexOf(\"//\") === 0) yearurl = \"http:\" + yearurl; else if (yearurl.charAt(0) === \"/\") yearurl = base.replace(/\\/$/, \"\") + yearurl; else {\n      var slash = base.lastIndexOf(\"/\");\n      yearurl = base.substring(0, slash + 1) + yearurl;\n    }\n  }\n  java.ajax(yearurl);\n}\n</js>\np:has(strong)",
+      "bookList": "- div.booktitle a\n<js>\nvar p = java.get(\"page\");\npage = parseInt(p, 10) || 1;\nvar ele = result[page - 1] || result[0];\nif (!ele) {\n  result = \"\";\n} else {\n  var yearurl = String(ele.attr(\"href\") || \"\");\n  yearurl = common(java).resolveRequest(yearurl, baseUrl || \"http://www.qstheory.cn/\");\n  java.ajax(yearurl);\n}\n</js>\np:has(strong)",
       "bookUrl": "a@href",
       "name": "a@text"
     },
@@ -882,7 +882,7 @@
       "chapterList": "-\n$.[0].rows",
       "chapterName": "$.Subject",
       "chapterUrl": "https://www.drc.gov.cn/{$.DocViewUrl}",
-      "nextTocUrl": "$.[*].totalpage\n@js:\nret =[]\nendpage=parseInt(result[0])\njava.log(\"totalpage:\"+endpage)\n//endpage=4\nfor(page=2;page<=endpage;page=page+1){\npageurl\n=`https://www.drc.gov.cn/Json/GetPageDocuments.ashx?chnid=379&leafid=1338&page=${page}&pagesize=50&sublen=21&sumlen=166&keyword=&expertid=0`\nret.push(pageurl)\n}\n\nret",
+      "nextTocUrl": "$.[*].totalpage\n@js:ret = [];\nendpage = parseInt(result[0]);\njava.log(\"totalpage:\" + endpage);\nfor (page = 2; page <= endpage; page = page + 1) {\n  pageurl = `https://www.drc.gov.cn/Json/GetPageDocuments.ashx?chnid=379&leafid=1338&page=${page}&pagesize=50&sublen=21&sumlen=166&keyword=&expertid=0`;\n  ret.push(pageurl);\n}\nret;",
       "updateTime": "$.Source"
     },
     "searchUrl": "https://www.drc.gov.cn/Json/GetPageDocuments.ashx?chnid=379&leafid=1338&page={{page}}&pagesize=50&sublen=21&sumlen=166&keyword=&expertid=0",
@@ -1029,7 +1029,7 @@
     "ruleSearch": {
       "author": "@js:\"\";",
       "bookList": "@css:.search-result-item||.post-item||article.post",
-      "bookUrl": "a@href\n@js:\nif (result && !result.startsWith('http')) result = 'http://www.ccg.org.cn' + result;\nresult",
+      "bookUrl": "a@href\n@js:result;",
       "coverUrl": "@js:\"http://www.ccg.org.cn/wp-content/themes/ccg/images/logo.png\";",
       "intro": "@js:\"\";",
       "kind": "@js:\"\";",
@@ -1039,8 +1039,8 @@
     "ruleToc": {
       "chapterList": "a[href*=\"/archives/\"]",
       "chapterName": "h5@text||@text",
-      "chapterUrl": "@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'http://www.ccg.org.cn/' + u.substring(2); else if (u.charAt(0) === '/') u = 'http://www.ccg.org.cn' + u; else u = 'http://www.ccg.org.cn/' + u;\n}\nresult = u;\nresult;\n</js>",
-      "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar as = d.select(\".page .page_list a[href]\");\nvar cur = 0, m = String(baseUrl || \"\").match(/\\/page\\/(\\d+)/);\nif (m) cur = parseInt(m[1], 10);\nvar u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var h = \"\" + as.get(i).attr(\"href\"), mm = h.match(/\\/page\\/(\\d+)/);\n  if (mm && parseInt(mm[1], 10) > cur) {\n    u = h;\n    break;\n  }\n}\nif (u && u.indexOf(\"http\") !== 0) u = \"http://www.ccg.org.cn\" + u;\nresult = u;\n</js>",
+      "chapterUrl": "@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\nresult;\n</js>",
+      "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar as = d.select(\".page .page_list a[href]\");\nvar cur = 0, m = String(baseUrl || \"\").match(/\\/page\\/(\\d+)/);\nif (m) cur = parseInt(m[1], 10);\nvar u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var h = \"\" + as.get(i).attr(\"href\"), mm = h.match(/\\/page\\/(\\d+)/);\n  if (mm && parseInt(mm[1], 10) > cur) {\n    u = h;\n    break;\n  }\n}\nresult = u;\n</js>",
       "updateTime": "span@text||time@text"
     },
     "searchUrl": "http://www.ccg.org.cn/?s={{key}}",
@@ -1112,8 +1112,8 @@
     "ruleExplore": {
       "author": "@js:\"中国社会科学网\";",
       "bookList": "<js>\nvar defs = [];\nif ((/\\/kgxc\\//i).test(String(baseUrl || \"\"))) defs = [[\"/kgxc/kgxc_xccz/\", \"现场传真\"], [\"/kgxc/kgxc_kgxl/\", \"考古新论\"], [\"/kgxc/kgxc_mjft/\", \"名家访谈\"], [\"/kgxc/kgxc_kgdz/\", \"考古队长\"], [\"/kgxc/kgxc_kghs/\", \"考古好书\"], [\"/kgxc/kgxc_bwzc/\", \"博物之窗\"], [\"/kgxc/kgxc_kgsb/\", \"考古随笔\"], [\"/kgxc/kgxc_ggkg/\", \"公共考古\"]]; else if ((/\\/zkzg\\//i).test(String(baseUrl || \"\"))) defs = [[\"/zkzg/zkzg_zkfx/\", \"智库风向\"], [\"/zkzg/zkzg_zkxl/\", \"智库新论\"], [\"/zkzg/zkzg_zkyc/\", \"智库观察\"], [\"/zkzg/zkzg_gdzk/\", \"各地智库\"], [\"/zkzg/zkzg_zkpj/\", \"智库评价\"], [\"/zkzg/zkzg_skyskl/zkzg_skyskl_yw/\", \"社科院所·动态\"], [\"/zkzg/zkzg_skyskl/zkzg_skyskl_yc/\", \"社科院所·成果\"], [\"/zkzg/zkzg_skyskl/zkzg_skyskl_zt/\", \"社科院所·专题\"], [\"/skgz/\", \"社科关注\"], [\"/skyl/\", \"社科要论\"]]; else if ((/\\/gjgc\\//i).test(String(baseUrl || \"\"))) defs = [[\"/gjgc/mhgj/\", \"漫画国际\"], [\"/gjgc/gjgc_mhgjtp/\", \"国研融媒体\"], [\"/gjgc/gjgc_gjdt/\", \"国际动态\"], [\"/gjgc/gjgc_jwzz/\", \"国研新著\"], [\"/gjgc/gjgc_gcld/\", \"观潮论道\"], [\"/gjgc/gjgc_whsh/\", \"五湖四海\"], [\"/gjgc/hqxx/\", \"环球学讯\"]];\nvar out = \"\";\nfor (var di = 0; di < defs.length; di++) out += \"<li><a href=\\\"\" + defs[di][0] + \"\\\">\" + defs[di][1] + \"</a></li>\";\nresult = out;\n</js>\nli",
-      "bookUrl": "a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://www.cssn.cn/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://www.cssn.cn' + u; else u = 'https://www.cssn.cn/' + u;\n}\nresult = u;\nresult;\n</js>",
-      "coverUrl": "img@src||@js:\"https://www.cssn.cn/favicon.ico\"",
+      "bookUrl": "a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\nresult;\n</js>",
+      "coverUrl": "img@src||@js:\"https://www.cssn.cn/favicon.ico\";",
       "intro": "@js:\"中国社会科学网栏目\";",
       "kind": "\"社科\"",
       "name": "a@text"
@@ -1122,8 +1122,8 @@
     "ruleToc": {
       "chapterList": "ul#div > li",
       "chapterName": "h5 a@text||a@text",
-      "chapterUrl": "a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else {\n    var b = String(baseUrl || \"\");\n    if (b.charAt(b.length - 1) !== \"/\") b = b.substring(0, b.lastIndexOf(\"/\") + 1);\n    while (u.indexOf(\"../\") === 0) {\n      b = b.substring(0, b.lastIndexOf(\"/\", b.length - 2) + 1);\n      u = u.substring(3);\n    }\n    if (u.indexOf(\"./\") === 0) u = u.substring(2);\n    u = b + u;\n  }\n}\nresult = u;\n</js>",
-      "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\"a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = \"\" + a.text();\n  if ((/下一页|下页|next/i).test(t)) {\n    u = \"\" + a.attr(\"href\");\n    break;\n  }\n}\nif (u) {\n  if (u.indexOf(\"http\") !== 0) {\n    var b = String(baseUrl || \"\");\n    if (b.charAt(b.length - 1) !== \"/\") b = b.substring(0, b.lastIndexOf(\"/\") + 1);\n    if (u.indexOf(\"./\") === 0) u = u.substring(2);\n    u = b + u;\n  }\n}\nresult = u;\n</js>",
+      "chapterUrl": "a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\n</js>",
+      "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\"a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = \"\" + a.text();\n  if ((/下一页|下页|next/i).test(t)) {\n    u = \"\" + a.attr(\"href\");\n    break;\n  }\n}\nresult = u;\n</js>",
       "updateTime": "time@text||span@text"
     },
     "weight": 0,
@@ -1203,7 +1203,7 @@
     "ruleExplore": {
       "author": "@js:\"\";",
       "bookList": "@css:.org_opinion li",
-      "bookUrl": "@css:a@href\n@js:\nvar href = result;\nif (href.indexOf('opinionslist') >= 0) {\n    'http://www.cicir.ac.cn/zh-cn/Api/opinion/get?pageIndex=1&pageSize=10';\n} else if (href.indexOf('students') >= 0) {\n    'http://www.cicir.ac.cn/zh-cn/Api/opinion/getXS?pageIndex=1&pageSize=10';\n} else {\n    href;\n}",
+      "bookUrl": "@css:a@href\n@js:var href = result;\nif (href.indexOf('opinionslist') >= 0) {\n  'http://www.cicir.ac.cn/zh-cn/Api/opinion/get?pageIndex=1&pageSize=10';\n} else if (href.indexOf('students') >= 0) {\n  'http://www.cicir.ac.cn/zh-cn/Api/opinion/getXS?pageIndex=1&pageSize=10';\n} else {\n  href;\n}",
       "coverUrl": "@js:\"http://www.cicir.ac.cn/NEW/images/cicirlogo.png\";",
       "intro": "@js:\"\";",
       "kind": "@js:\"\";",
@@ -1216,7 +1216,7 @@
     "ruleSearch": {
       "author": "@js:\"\";",
       "bookList": "@js:var arr = typeof result == 'string' ? JSON.parse(result) : result;\nvar list = [];\nfor (var i = 0; i < arr.length; i++) {\n  if (arr[i].type == 'opinion') list.push(arr[i]);\n}\nlist;",
-      "bookUrl": "Id##$##,{\"webView\":true}\n@js:\nvar id = result;\nif (id && !id.toLowerCase().startsWith('http')) result = 'http://www.cicir.ac.cn/zh-cn/api/opinion/getOpinion?id=' + id;\nresult",
+      "bookUrl": "Id##$##,{\"webView\":true}\n@js:var id = result;\nif (id && !id.toLowerCase().startsWith('http')) result = 'http://www.cicir.ac.cn/zh-cn/api/opinion/getOpinion?id=' + id;\nresult;",
       "coverUrl": "@js:\"http://www.cicir.ac.cn/NEW/images/cicirlogo.png\";",
       "intro": "@js:\"\";",
       "kind": "@js:\"\";",
@@ -1328,8 +1328,8 @@
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\nli.announce__item:has(a.announce__link_fix_ru[href])",
       "chapterName": "a.announce__link_fix_ru@text\n<js>\nif (result && !(/[\\u3400-\\u9fff]/).test(String(result))) result = common(java).TT(result, java, cache);\nresult;\n</js>",
-      "chapterUrl": "a.announce__link_fix_ru@href\n<js>\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://mid.ru' + url;\nurl;\n</js>",
-      "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\".pager a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = String(a.text()).toLowerCase();\n  if (t.indexOf(\"вперед\") >= 0 || t.indexOf(\"next\") >= 0) {\n    u = String(a.attr(\"href\"));\n    break;\n  }\n}\nif (u && u.indexOf(\"http\") !== 0) u = \"https://mid.ru\" + u;\nresult = u;\n</js>",
+      "chapterUrl": "a.announce__link_fix_ru@href\n<js>\nString(result || \"\");\n</js>",
+      "nextTocUrl": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\".pager a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = String(a.text()).toLowerCase();\n  if (t.indexOf(\"вперед\") >= 0 || t.indexOf(\"next\") >= 0) {\n    u = String(a.attr(\"href\"));\n    break;\n  }\n}\nresult = u;\n</js>",
       "updateTime": "span.announce__date@text"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);",
@@ -1378,8 +1378,8 @@
     "ruleExplore": {
       "author": "@js:\"Российский совет по международным делам\";",
       "bookList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: [\"script\", \"noscript\", \"style\", \"nav\", \"aside\", \"footer\", \"div.row.mb20\", \"div.fdreedf\", \"main aside\"]\n});\nresult;\n</js>\ndiv.article-list div.img-link",
-      "bookUrl": "a.img-link__link@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://russiancouncil.ru/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://russiancouncil.ru' + u; else u = 'https://russiancouncil.ru/' + u;\n}\nresult = u;\nresult;\n</js>",
-      "coverUrl": "img@src||@js:\"https://russiancouncil.ru/img/logo_en.jpg\"",
+      "bookUrl": "a.img-link__link@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\nresult;\n</js>",
+      "coverUrl": "img@src||@js:\"https://russiancouncil.ru/img/logo_en.jpg\";",
       "intro": "a.img-link__link@text",
       "kind": "\"智库\"",
       "name": "a.img-link__link@text"
@@ -1393,8 +1393,8 @@
     "ruleToc": {
       "chapterList": "-\ndiv.article-list div.img-link||article||main article",
       "chapterName": "a.img-link__link@text||h1@text||h2@text",
-      "chapterUrl": "a.img-link__link@href\n<js>\nif (!result) result = baseUrl;\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://russiancouncil.ru/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://russiancouncil.ru' + u; else u = 'https://russiancouncil.ru/' + u;\n}\nresult = u;\nresult;\n</js>",
-      "nextTocUrl": "a.btn.mb_top.js-more@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://russiancouncil.ru/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://russiancouncil.ru' + u; else u = 'https://russiancouncil.ru/' + u;\n}\nresult = u;\nresult;\n</js>",
+      "chapterUrl": "a.img-link__link@href\n<js>\nif (!result) result = baseUrl;\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\nresult;\n</js>",
+      "nextTocUrl": "a.btn.mb_top.js-more@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\nresult;\n</js>",
       "updateTime": "p.date@text"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);\njava.put('search', 1);",
@@ -1589,8 +1589,8 @@
     "ruleToc": {
       "chapterList": "@css:div.view-content > div",
       "chapterName": "@css:h6@text\n<js>\nresult = common(java).TT(result || \"\", java, cache);\nresult = Array.isArray(result) ? result.map(function (t) {\n  return t.trim() ? \"-\" + t : t;\n}) : result.trim() ? \"-\" + result : result;\nresult;\n</js>",
-      "chapterUrl": "@css:a@href\n@js:\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://russtrat.ru' + url;\nurl",
-      "nextTocUrl": "@css:.pager-item a@href\n@js:\nvar urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n  var u = String(urls[i] || '');\n  if (u.indexOf('page=') >= 0) {\n    if (u.indexOf('http') < 0) {\n      if (u.startsWith('/')) {\n        u = 'https://russtrat.ru' + u;\n      } else {\n        u = 'https://russtrat.ru/analytics?' + u;\n      }\n    }\n    if (!seen[u]) { seen[u] = 1; list.push(u); }\n  }\n}\nlist"
+      "chapterUrl": "@css:a@href\n@js:String(result || \"\");",
+      "nextTocUrl": "@css:.pager-item a@href\n@js:var urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n  var u = String(urls[i] || '');\n  if (u.indexOf('page=') >= 0) {\n    if (u.indexOf('http') < 0 && !u.startsWith('/')) u = '/analytics?' + u;\n    if (!seen[u]) {\n      seen[u] = 1;\n      list.push(u);\n    }\n  }\n}\nlist;"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);",
     "weight": 0
@@ -1645,8 +1645,8 @@
     "ruleToc": {
       "chapterList": "-\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\n@css:div.big-new",
       "chapterName": "@css:a.big-new_title@text\n<js>\nresult = common(java).TT(result, java, cache);\nresult;\n</js>",
-      "chapterUrl": "@css:a.big-new_title@href\n@js:\nvar url = String(result || '');\nif (url && !url.startsWith('http')) url = 'https://riss.ru' + url;\nurl",
-      "nextTocUrl": "@css:.pagination-list a@href\n@js:\nvar urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n    var u = String(urls[i] || '');\n    if (u.indexOf('PAGEN_1') >= 0) {\n        if (u.indexOf('http') < 0) u = 'https://riss.ru' + u;\n        if (!seen[u]) { seen[u] = 1; list.push(u); }\n    }\n}\nlist",
+      "chapterUrl": "@css:a.big-new_title@href\n@js:String(result || \"\");",
+      "nextTocUrl": "@css:.pagination-list a@href\n@js:var urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n  var u = String(urls[i] || '');\n  if (u.indexOf('PAGEN_1') >= 0) {\n    if (!seen[u]) {\n      seen[u] = 1;\n      list.push(u);\n    }\n  }\n}\nlist;",
       "updateTime": "@css:.article__head_date@text"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);",
@@ -2307,7 +2307,7 @@
     },
     "ruleExplore": {
       "author": "@js:\"Communications of the ACM\";",
-      "bookList": "ul.archive-issue-timeline-navigation-list li a\n<js>\npage = java.get(\"page\");\nbasehost = \"https://cacm.acm.org/\";\nlength = result.length;\nele = result[page - 1];\nyearurl = ele.attr('href');\nif (!yearurl.startsWith(\"http\")) {\n  yearurl = basehost + yearurl;\n}\njava.ajax(yearurl);\n</js>\na.archive-issue-timeline-issues-item",
+      "bookList": "ul.archive-issue-timeline-navigation-list li a\n<js>\npage = java.get(\"page\");\nlength = result.length;\nele = result[page - 1];\nyearurl = ele.attr('href');\nyearurl = common(java).resolveRequest(yearurl, baseUrl);\njava.ajax(yearurl);\n</js>\na.archive-issue-timeline-issues-item",
       "bookUrl": "//@href",
       "coverUrl": "//img/@src",
       "intro": "/span[2]/text()",
@@ -2573,7 +2573,7 @@
       "chapterList": "<js>\nresult = common(java).TJ(result, java, cache);\nresult;\n</js>\n$.content",
       "chapterName": "$.title",
       "chapterUrl": "$.url",
-      "nextTocUrl": "$.totalPages\n@js:\n    java.log(\"Global Variables:\");\n    Object.keys(global).forEach(function(key) {\n        java.log(`${key}: ${global[key]}`);\n    });\n\n    java.log(\"\\nLocal Variables:\");\n    Object.keys(this).forEach(function(key) {\n        java.log(`${key}: ${this[key]}`);\n    });\n\n    java.log(\"toc:\"+book.tocUrl)\ntotalpage=result[0]\nlist=[]\nfor(p=1;p<totalpage;p++){\nurl = baseUrl + '&page=' + p\nlist.push(url)\n}\nlist",
+      "nextTocUrl": "$.totalPages\n@js:java.log(\"Global Variables:\");\nObject.keys(global).forEach(function (key) {\n  java.log(`${key}: ${global[key]}`);\n});\njava.log(\"\\nLocal Variables:\");\nObject.keys(this).forEach(function (key) {\n  java.log(`${key}: ${this[key]}`);\n});\njava.log(\"toc:\" + book.tocUrl);\ntotalpage = result[0];\nlist = [];\nfor (p = 1; p < totalpage; p++) {\n  url = baseUrl + '&page=' + p;\n  list.push(url);\n}\nlist;",
       "preUpdateJs": "",
       "updateTime": ""
     },
@@ -2941,7 +2941,7 @@
     "ruleToc": {
       "chapterList": "dd.row",
       "chapterName": "span.name a@text",
-      "chapterUrl": "span.name a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://navi.cnki.net/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://navi.cnki.net' + u; else u = 'https://navi.cnki.net/' + u;\n}\nresult = u;\nresult;\n</js>"
+      "chapterUrl": "span.name a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nresult = u;\nresult;\n</js>"
     },
     "weight": 0,
     "loginCheckJs": "common(java).check(result,java,{\"kind\":\"chineseCaptcha\",\"name\":\"CNKI\"});",
@@ -3025,7 +3025,7 @@
     },
     "ruleExplore": {
       "author": "",
-      "bookList": "h2:has(a)\n@js:\nsectitle = getNameFromBaseUrl(baseUrl, source.exploreUrl)\ntemplate = `<h2><a href=\"${baseUrl}\">${sectitle}</a></h2>`;\nhome = org.jsoup.Jsoup.parse(template).select(\"h2\").first();\nresult.add(0,home)\nresult",
+      "bookList": "h2:has(a)\n@js:sectitle = getNameFromBaseUrl(baseUrl, source.exploreUrl);\ntemplate = `<h2><a href=\"${baseUrl}\">${sectitle}</a></h2>`;\nhome = org.jsoup.Jsoup.parse(template).select(\"h2\").first();\nresult.add(0, home);\nresult;",
       "bookUrl": "a@href",
       "coverUrl": "@js:\"https://m.media-amazon.com/images/I/718McOziRKL._AC_UF1000,1000_QL80_FMwebp_.jpg\";",
       "intro": "@js:\"www.entrepreneur.com The latest small business tips and advice from Entrepreneur\";",
@@ -3197,7 +3197,7 @@
     "loginUrl": "function login() { common(java).login(java,result,{\"language\":true,\"render\":true}); }",
     "respondTime": 180000,
     "ruleBookInfo": {
-      "coverUrl": "//详情页 封面 备份\n<js>\nif (book.coverUrl == \"https://ieeexplore.ieee.org/\") {\n  refer = java.get('refer');\n  let options = {\n    \"headers\": {\n      \"Referrer\": refer\n    }\n  };\n  refer = refer + \",{'webView': true}\";\n  result = java.ajax(refer);\n  Jsoup = org.jsoup.Jsoup;\n  var doc = Jsoup.parse(result);\n  css = \"div.coverImage-container img\";\n  var elements = doc.select(css);\n  result = 'https://ieeexplore.ieee.org' + elements.attr('src');\n  src = elements[0].attr('src');\n  result = src;\n  java.log('cover:' + result);\n  result;\n}\n</js>",
+      "coverUrl": "//详情页 封面 备份\n<js>\nif (book.coverUrl == \"https://ieeexplore.ieee.org/\") {\n  refer = java.get('refer');\n  let options = {\n    \"headers\": {\n      \"Referrer\": refer\n    }\n  };\n  refer = refer + \",{'webView': true}\";\n  result = java.ajax(refer);\n  Jsoup = org.jsoup.Jsoup;\n  var doc = Jsoup.parse(result);\n  css = \"div.coverImage-container img\";\n  var elements = doc.select(css);\n  src = elements[0].attr('src');\n  result = src;\n  java.log('cover:' + result);\n  result;\n}\n</js>",
       "tocUrl": "\"https://ieeexplore.ieee.org/rest/search/pub/7742/issue/10438936/toc\",{\n    \"charset\": \"gbk\",\n    \"method\": \"POST\",\n    \"body\": `isnumber=10438936;punumber=\"7742\";sortType=\"vol-only-seq\"`\n}"
     },
     "ruleContent": {
@@ -3224,8 +3224,8 @@
       "chapterList": "<js>\nvar raw = String(result || \"\");\nraw = common(java).TJ(raw, java, cache, [\"articleTitle\", \"abstract\"]);\n{\n  var obj = JSON.parse(raw);\n  result = JSON.stringify(obj.records || []);\n}\nresult;\n</js>\n$[*]",
       "chapterName": "$.articleTitle",
       "chapterUrl": "$.htmlLink",
-      "isVip": "$.accessType.type\n@js:\nresult ==\"locked\"",
-      "nextTocUrl": "totalPages\n@js:pagecount=result[0];\npagecount = Math.min(5, pagecount);\nlist=[]\nissueNumber = java.get(\"isnumber\");\npublicationNumber = java.get(\"punumber\");\nfor (p=2;p<=pagecount;p++){\n\n    if (java.get('search')==1){\n        pageurl = search(java.get('key'),p)\n    }else{\n        pageurl = pub(issueNumber,publicationNumber,p)\n    }\n\n    list.push(pageurl)\n}\nlist",
+      "isVip": "$.accessType.type\n@js:result == \"locked\";",
+      "nextTocUrl": "totalPages\n@js:pagecount = result[0];\npagecount = Math.min(5, pagecount);\nlist = [];\nissueNumber = java.get(\"isnumber\");\npublicationNumber = java.get(\"punumber\");\nfor (p = 2; p <= pagecount; p++) {\n  if (java.get('search') == 1) {\n    pageurl = search(java.get('key'), p);\n  } else {\n    pageurl = pub(issueNumber, publicationNumber, p);\n  }\n  list.push(pageurl);\n}\nlist;",
       "updateTime": "$.abstract"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);\njava.put('search', 1);",
@@ -3272,8 +3272,8 @@
     },
     "ruleExplore": {
       "bookList": "tags[*]",
-      "bookUrl": "slug\n@js:\nret=`https://product-marketing-alliance.ghost.io/ghost/api/content/posts/?filter=tags:[${result}]&include=tags,authors&key=8037873c30300824fef1a9e080&limit=24&order=published_at desc`\nret",
-      "coverUrl": "feature_image\n@js:\nif (result==\"\"){\nresult = \"https://www.productmarketingalliance.com/assets/img/sales/PMM.png?v=3c8fa4ba47\"\n}\nresult\n",
+      "bookUrl": "slug\n@js:ret = `https://product-marketing-alliance.ghost.io/ghost/api/content/posts/?filter=tags:[${result}]&include=tags,authors&key=8037873c30300824fef1a9e080&limit=24&order=published_at desc`;\nret;",
+      "coverUrl": "feature_image\n@js:if (result == \"\") {\n  result = \"https://www.productmarketingalliance.com/assets/img/sales/PMM.png?v=3c8fa4ba47\";\n}\nresult;",
       "intro": "meta_description||description",
       "name": "meta_title||name"
     },
@@ -3288,8 +3288,8 @@
       "chapterName": "$.title",
       "chapterUrl": "$.url",
       "isPay": "",
-      "isVip": "$.access\n@js:\n//java.log(\"access:\"+result)\n!result",
-      "nextTocUrl": "$.meta.pagination.pages\n@js:\njava.put(\"pages\",result[0])\npages=java.get(\"pages\")\njava.log(\"pages \" + pages)\n//pages=2\nlist =[]\nfor (p=2;p<=pages&&baseUrl.indexOf(\"&page=\")  == -1;p+=1){\nlist.push(baseUrl+\"&page=\"+p)\n}\n\nlist",
+      "isVip": "$.access\n@js:!result;",
+      "nextTocUrl": "$.meta.pagination.pages\n@js:java.put(\"pages\", result[0]);\npages = java.get(\"pages\");\njava.log(\"pages \" + pages);\nlist = [];\nfor (p = 2; p <= pages && baseUrl.indexOf(\"&page=\") == -1; p += 1) {\n  list.push(baseUrl + \"&page=\" + p);\n}\nlist;",
       "preUpdateJs": "",
       "updateTime": "$.published_at##\\..+$"
     },
@@ -3365,7 +3365,7 @@
       "chapterList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\n//div[@class=\"issue-item__title\"]",
       "chapterName": "/a//text()",
       "chapterUrl": "/a/@href##$##,{'webView':true}",
-      "isVip": "/../..//span[@class=\"issue-item-access\"]//text()@js:if(result==\"Restricted access\") {\ntrue}\nelse{ false}\n",
+      "isVip": "/../..//span[@class=\"issue-item-access\"]//text()@js:if (result == \"Restricted access\") {\n  true;\n} else {\n  false;\n}",
       "nextTocUrl": "nav > ul > li > a@href",
       "preUpdateJs": ""
     },
@@ -3425,7 +3425,7 @@
       "chapterList": "-\narticle.journal-detail__article--card",
       "chapterName": "h3 a@text\n<js>\nif (result) result = common(java).TT(result, java, cache);\nresult;\n</js>",
       "chapterUrl": "h3 a@href",
-      "isVip": "span[aria-label=\"Access type: Restricted access\"]@text\n@js:if(result){true}else{false}"
+      "isVip": "span[aria-label=\"Access type: Restricted access\"]@text\n@js:if (result) {\n  true;\n} else {\n  false;\n}"
     },
     "searchUrl": "@js:java.put('key', key);",
     "weight": 0,
@@ -3488,7 +3488,7 @@
       "chapterList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: [],\n  formula_selector: formula_selector\n});\nresult;\n</js>\ndt div, div.result-item-content h2",
       "chapterName": "//text()",
       "chapterUrl": "//a/@href##$##,{\"webView\":true,\"webViewDelayTime\":2000}",
-      "isVip": "/../..//span[@class=\"js-open-access\"]/text()\n@js:\n//java.log(result)\nkeywords = [\"开放获取\", \"社论\", \"出版商更正\",\"仅抽象\"];\n// 检查 result 是否包含任意一个关键词\nkeywords.some(keyword => result.includes(keyword));"
+      "isVip": "/../..//span[@class=\"js-open-access\"]/text()\n@js:keywords = [\"开放获取\", \"社论\", \"出版商更正\", \"仅抽象\"];\nkeywords.some(keyword => result.includes(keyword));"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);",
     "weight": 0,
@@ -3536,7 +3536,7 @@
       "init": "",
       "intro": "",
       "kind": "",
-      "wordCount": "$.meta.pagination.total\n@js:\nresult + \" topics\""
+      "wordCount": "$.meta.pagination.total\n@js:result + \" topics\";"
     },
     "ruleContent": {
       "content": "//div[@class=\"post-title\"]//h1|//div[@class=\"post-content-container\"]\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: remove_selector\n});\nresult;\n</js>",
@@ -3545,8 +3545,8 @@
     },
     "ruleExplore": {
       "bookList": "tags[*]",
-      "bookUrl": "slug\n@js:\nret=`https://product-marketing-alliance.ghost.io/ghost/api/content/posts/?filter=tags:[${result}]&include=tags,authors&key=8037873c30300824fef1a9e080&limit=24&order=published_at desc`\nret",
-      "coverUrl": "feature_image\n@js:\nif (result==\"\"){\nresult = \"https://www.productmarketingalliance.com/assets/img/sales/PMM.png?v=3c8fa4ba47\"\n}\nresult\n",
+      "bookUrl": "slug\n@js:ret = `https://product-marketing-alliance.ghost.io/ghost/api/content/posts/?filter=tags:[${result}]&include=tags,authors&key=8037873c30300824fef1a9e080&limit=24&order=published_at desc`;\nret;",
+      "coverUrl": "feature_image\n@js:if (result == \"\") {\n  result = \"https://www.productmarketingalliance.com/assets/img/sales/PMM.png?v=3c8fa4ba47\";\n}\nresult;",
       "intro": "meta_description||description",
       "name": "meta_title||name"
     },
@@ -3561,8 +3561,8 @@
       "chapterName": "$.title",
       "chapterUrl": "$.url",
       "isPay": "",
-      "isVip": "$.access\n@js:\n//java.log(\"access:\"+result)\n!result",
-      "nextTocUrl": "$.meta.pagination.pages\n@js:\njava.put(\"pages\",result[0])\npages=java.get(\"pages\")\njava.log(\"pages \" + pages)\n//pages=2\nlist =[]\nfor (p=2;p<=pages&&baseUrl.indexOf(\"&page=\")  == -1;p+=1){\nlist.push(baseUrl+\"&page=\"+p)\n}\n\nlist",
+      "isVip": "$.access\n@js:!result;",
+      "nextTocUrl": "$.meta.pagination.pages\n@js:java.put(\"pages\", result[0]);\npages = java.get(\"pages\");\njava.log(\"pages \" + pages);\nlist = [];\nfor (p = 2; p <= pages && baseUrl.indexOf(\"&page=\") == -1; p += 1) {\n  list.push(baseUrl + \"&page=\" + p);\n}\nlist;",
       "preUpdateJs": "",
       "updateTime": "$.published_at##\\..+$"
     },
@@ -3727,8 +3727,8 @@
       "author": "@js:\"ProductPlan\";",
       "bookList": "<js>\nvar PRODUCT_CATEGORIES = {\n  \"/blog\": \"Blog\",\n  \"/case-studies\": \"Case Studies\",\n  \"/videos\": \"Videos\",\n  \"/webinars\": \"Webinars\",\n  \"/templates\": \"Templates\",\n  \"/glossary\": \"Glossary\"\n};\nresult = (function productExplore(raw, url) {\n  var d = org.jsoup.Jsoup.parse(String(raw || ''), url), out = org.jsoup.Jsoup.parseBodyFragment(''), seen = {};\n  var items = d.select('nav.navbar_dropdown-list li.navbar_dropdown-inner-list-item');\n  for (var i = 0; i < items.size(); i++) {\n    var a = items.get(i).select('a[href]').first();\n    if (!a) continue;\n    var u = common(java).resolveRequest(a.attr('href'), url), path = u.replace(/^https?:\\/\\/www\\.productplan\\.com/i, '').replace(/\\/$/, '');\n    if (!PRODUCT_CATEGORIES[path] || seen[u]) continue;\n    seen[u] = true;\n    out.body().appendElement('li').appendElement('a').attr('href', u).text(PRODUCT_CATEGORIES[path]);\n  }\n  return String(out.body().html());\n})(result, String(typeof baseUrl === \"undefined\" ? \"\" : baseUrl));\nresult;\n</js>\nli",
       "bookUrl": "a@href",
-      "coverUrl": "img@src||@js:\"\"",
-      "intro": ".plain-text@text||.eyebrow@text||@js:\"ProductPlan resources\"",
+      "coverUrl": "img@src||@js:\"\";",
+      "intro": ".plain-text@text||.eyebrow@text||@js:\"ProductPlan resources\";",
       "kind": "\"产品与创业\"",
       "name": "a@text\n<js>\nif (result) result = common(java).TT(result, java, cache);\nresult;\n</js>"
     },
@@ -3801,14 +3801,14 @@
       "author": "/../cite/text()",
       "bookList": "<js>\ntest = `<li>\n\n<a class=\"tocLink\" href=\"https://academic.oup.com/search-results?q={{java.get('key')}}&f_ContentType=Journal+Article&SearchSourceType=1\">Oxford Academy ` + java.get(\"key\") + `</a>\n\n</li>\n`;\ntest + result;\n</js>\ndiv.al-article-items h5, div.sr-list h4, li:has(>a.tocLink)",
       "bookUrl": "a@href\n",
-      "coverUrl": "/../..//img/@src\n@js:\nresult=result.split('\\n')[0]\nif (result==\"\") {\nresult = \"https://oup.silverchair-cdn.com/UI/app/svg/umbrella/oxford-academic-logo.svg\"\n}\nresult",
+      "coverUrl": "/../..//img/@src\n@js:result = result.split('\\n')[0];\nif (result == \"\") {\n  result = \"https://oup.silverchair-cdn.com/UI/app/svg/umbrella/oxford-academic-logo.svg\";\n}\nresult;",
       "name": "a@text"
     },
     "ruleToc": {
       "chapterList": "<js>\nvar jsonData = \"[]\";\nJsoup = org.jsoup.Jsoup;\nvar doc = Jsoup.parse(result);\ndoc.select(\"div.widget > script\").forEach(function (script) {\n  var content = script.html();\n  var match = content.match(/var\\s+accessAttributes\\s*=\\s*(\\[.*?\\]);/);\n  if (match && match[1]) {\n    jsonData = match[1];\n    java.put('accessAttributesJson', jsonData);\n  }\n});\nresult;\n</js>\n<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: [\"script\", \"[role=doc-biblioref]\", \"noscript\", \"style\", \".get-access\", \".ref-list\", \"div.fig-orig\"],\n  extract_selector: [\"inline-formula tex-math\"],\n  notranslate_selector: [\"div.MathJax_Display\"]\n});\nresult;\n</js>\ndiv.al-article-items h5, div.sr-list h4, li:has(>a.tocLink)",
       "chapterName": "a@text",
       "chapterUrl": "a@href",
-      "isVip": "@data-resource-id-access\n@js:\n// isvip脚本：从存储的JSON中查找对应resourceId\ntry {\n    // 获取存储的JSON字符串\n    var jsonStr = java.get(\"accessAttributesJson\");\n    //java.log(jsonStr)\n    var accessAttributes = JSON.parse(jsonStr);\n    var resourceId = parseInt(result);\n    var ret = false;\n    \n    //java.log(\"开始查找resourceId: \" + resourceId);\n    \n    // 遍历查找匹配项\n    if (!isNaN(resourceId)) {\n        for (var i = 0; i < accessAttributes.length; i++) {\n            var attr = accessAttributes[i];\n            if (attr.id === resourceId) {\n                ret = attr.availableforpurchase;\n                //java.log(\"找到匹配项: \" + attr.id + \" => \" + ret);\n                break;\n            }\n        }\n    }\n    \n    //java.log('最终结果: ID ' + resourceId + ' => ' + ret);\n    ret; // 返回结果\n    \n} catch (e) {\n    java.log(\"处理出错: \" + e);\n    false; // 出错时返回false\n}",
+      "isVip": "@data-resource-id-access\n@js:{\n  var jsonStr = java.get(\"accessAttributesJson\");\n  var accessAttributes = JSON.parse(jsonStr);\n  var resourceId = parseInt(result);\n  var ret = false;\n  if (!isNaN(resourceId)) {\n    for (var i = 0; i < accessAttributes.length; i++) {\n      var attr = accessAttributes[i];\n      if (attr.id === resourceId) {\n        ret = attr.availableforpurchase;\n        break;\n      }\n    }\n  }\n  ret;\n}",
       "nextTocUrl": "a.al-pageNumber[data-url]@data-url##^##https://academic.oup.com/search-results?",
       "updateTime": "span.get-access@text"
     },
@@ -3882,7 +3882,7 @@
       "chapterList": "<js>\nvar jsonData = \"[]\";\nJsoup = org.jsoup.Jsoup;\nvar doc = Jsoup.parse(result);\ndoc.select(\"div.widget > script\").forEach(function (script) {\n  var content = script.html();\n  var match = content.match(/var\\s+accessAttributes\\s*=\\s*(\\[.*?\\]);/);\n  if (match && match[1]) {\n    jsonData = match[1];\n    java.put('accessAttributesJson', jsonData);\n  }\n});\nresult;\n</js>\n<js>\nresult = common(java).TH(result, java, cache, {\n  extract_selector: [\"inline-formula tex-math\"],\n  notranslate_selector: [\"div.MathJax_Display\"]\n});\nresult;\n</js>\ndiv.al-article-items h5, div.sr-list h4, li:has(>a.tocLink)",
       "chapterName": "a@text",
       "chapterUrl": "a@href",
-      "isVip": "@data-resource-id-access\n@js:\n// isvip脚本：从存储的JSON中查找对应resourceId\ntry {\n    // 获取存储的JSON字符串\n    var jsonStr = java.get(\"accessAttributesJson\");\n    //java.log(jsonStr)\n    var accessAttributes = JSON.parse(jsonStr);\n    var resourceId = parseInt(result);\n    var ret = false;\n    \n    //java.log(\"开始查找resourceId: \" + resourceId);\n    \n    // 遍历查找匹配项\n    if (!isNaN(resourceId)) {\n        for (var i = 0; i < accessAttributes.length; i++) {\n            var attr = accessAttributes[i];\n            if (attr.id === resourceId) {\n                ret = attr.availableforpurchase;\n                //java.log(\"找到匹配项: \" + attr.id + \" => \" + ret);\n                break;\n            }\n        }\n    }\n    \n    //java.log('最终结果: ID ' + resourceId + ' => ' + ret);\n    ret; // 返回结果\n    \n} catch (e) {\n    java.log(\"处理出错: \" + e);\n    false; // 出错时返回false\n}",
+      "isVip": "@data-resource-id-access\n@js:{\n  var jsonStr = java.get(\"accessAttributesJson\");\n  var accessAttributes = JSON.parse(jsonStr);\n  var resourceId = parseInt(result);\n  var ret = false;\n  if (!isNaN(resourceId)) {\n    for (var i = 0; i < accessAttributes.length; i++) {\n      var attr = accessAttributes[i];\n      if (attr.id === resourceId) {\n        ret = attr.availableforpurchase;\n        break;\n      }\n    }\n  }\n  ret;\n}",
       "nextTocUrl": "a.al-pageNumber[data-url]@data-url##^##https://academic.oup.com/search-results?",
       "preUpdateJs": "",
       "updateTime": "span.get-access@text"
@@ -4091,7 +4091,7 @@
       "chapterList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: [],\n  formula_selector: formula_selector\n});\nresult;\n</js>\nol article||ol.u-list-reset li ",
       "chapterName": "//h3/a//text()",
       "chapterUrl": "//h3/a/@href\n<js>\nbaseUrl = source.getLoginInfoMap().get(\"proxyUrl\");\nurl = baseUrl + result + \",{'webView': true}\";\nurl = result;\n</js>",
-      "isVip": "div.c-meta@text\n@js:\nkeywords = [\"开放获取\", \"社论\", \"出版商更正\"];\n// 检查 result 是否包含任意一个关键词\n!keywords.some(keyword => result.includes(keyword));\n",
+      "isVip": "div.c-meta@text\n@js:keywords = [\"开放获取\", \"社论\", \"出版商更正\"];\n!keywords.some(keyword => result.includes(keyword));",
       "nextTocUrl": "li[data-page] a@href",
       "preUpdateJs": ""
     },
@@ -4176,7 +4176,7 @@
       "chapterList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: [],\n  formula_selector: formula_selector\n});\nresult;\n</js>\nol article||ol.u-list-reset li ",
       "chapterName": "//h2/a//text()",
       "chapterUrl": "//h2/a/@href",
-      "isVip": "div.c-meta@text\n@js:\nkeywords = [\"开放获取\", \"社论\", \"出版商更正\"];\n// 检查 result 是否包含任意一个关键词\n!keywords.some(keyword => result.includes(keyword));\n",
+      "isVip": "div.c-meta@text\n@js:keywords = [\"开放获取\", \"社论\", \"出版商更正\"];\n!keywords.some(keyword => result.includes(keyword));",
       "nextTocUrl": "li[data-page] a@href"
     },
     "searchUrl": "https://link.springer.com/search?new-search=true&query={{java.put('key',key);key}}&content-type=Reference+Work+Entry&content-type=Conference+Proceedings&content-type=Book&sortBy=relevance&page={{page}}",
@@ -4243,7 +4243,7 @@
     },
     "ruleExplore": {
       "author": "../p",
-      "bookList": "\nul.list-of-issues li.vol_li a\n<js>\njava.log(\"result:\" + result);\npage = java.get(\"page\");\njava.log(\"page:\" + page);\nbasehost = \"https://www.tandfonline.com\";\nlength = result.length;\nele = result[page - 1];\nyearurl = ele.attr('href');\nif (!yearurl.startsWith(\"http\")) {\n  yearurl = basehost + yearurl;\n}\njava.log(yearurl);\njava.ajax(yearurl);\n</js>\ndiv.issue-num ",
+      "bookList": "\nul.list-of-issues li.vol_li a\n<js>\njava.log(\"result:\" + result);\npage = java.get(\"page\");\njava.log(\"page:\" + page);\nlength = result.length;\nele = result[page - 1];\nyearurl = ele.attr('href');\nyearurl = common(java).resolveRequest(yearurl, baseUrl);\njava.log(yearurl);\njava.ajax(yearurl);\n</js>\ndiv.issue-num ",
       "bookUrl": "a@href",
       "name": "a@text"
     },
@@ -4257,7 +4257,7 @@
       "chapterList": "<js>\nresult = common(java).TH(result, java, cache, {\n  remove_selector: []\n});\nresult;\n</js>\ndiv.articleEntry||article.searchResultItem",
       "chapterName": "div.art_title a.ref@text",
       "chapterUrl": "div.art_title a.ref@href",
-      "isVip": "span.access-icon@class\n@js:\n/(^|\\s)no(\\s|$)/.test(String(result||'')) ? 'true' : ''",
+      "isVip": "span.access-icon@class\n@js:(/(^|\\s)no(\\s|$)/).test(String(result || '')) ? 'true' : '';",
       "preUpdateJs": "//h1|//div[@class=\"article__body \"]"
     },
     "searchUrl": "@js:java.put('key', key);\njava.put('page', page);",
@@ -4737,7 +4737,7 @@
       "wordCount": "连载{{$.data.status}}完本##连载1|2完本"
     },
     "ruleContent": {
-      "content": "$..content@js:java.aesBase64DecodeToString(result,\"Pxga!h*e4@T8xfOm\",\"AES/CBC/PKCS5Padding\",\"E&z!EHGLd$fli*8R\")"
+      "content": "$..content@js:java.aesBase64DecodeToString(result, \"Pxga!h*e4@T8xfOm\", \"AES/CBC/PKCS5Padding\", \"E&z!EHGLd$fli*8R\");"
     },
     "ruleExplore": {},
     "ruleSearch": {
@@ -4752,7 +4752,7 @@
     },
     "ruleToc": {
       "chapterList": "data",
-      "chapterName": "name@js:java.aesBase64DecodeToString(result,\"Pxga!h*e4@T8xfOm\",\"AES/CBC/PKCS5Padding\",\"E&z!EHGLd$fli*8R\")",
+      "chapterName": "name@js:java.aesBase64DecodeToString(result, \"Pxga!h*e4@T8xfOm\", \"AES/CBC/PKCS5Padding\", \"E&z!EHGLd$fli*8R\");",
       "chapterUrl": "https://chapter.xcfcch.com/{{$.path}}",
       "updateTime": "更新时间:{{java.timeFormat(java.getString('$.updated_at')*1000)}}"
     },
@@ -4876,7 +4876,7 @@
       "chapterList": "data.chapter_list",
       "chapterName": "chapter_title@put:{a:$.next_chapter}",
       "chapterUrl": "@js:function sign(list) {\n  var sb = 'p33d3d7giyv8hlsd';\n  list = list.sort();\n  for (var i = 0; i < list.length; i++) {\n    if (i == 0) {\n      sb += list[i];\n    } else {\n      sb += \"&\";\n      sb += list[i];\n    }\n  }\n  sb += \"ac9de0edzhozh5fwcqi3bn0w5cqvht0u\";\n  return String(java.md5Encode(sb)).toUpperCase();\n}\ntime = Math.round(new Date() / 1000);\nlist = [\"book_id={{$.book_id}}\", \"chapter_id={{$.chapter_id}}\", \"packageName=com.letuapp.reader\", \"time=\" + time, \"token=\", \"marketChannel=xiaomi\", \"appId=\", \"sysVer=7.1.2\", \"osType=2\", \"udid=1f705dac-2eec-3045-96be-713264df32c2\", \"ver=1.4.1\", \"product=1\"];\nbody = {\n  \"sign\": sign(list),\n  \"book_id\": {{$.book_id}},\n  \"chapter_id\": {{$.chapter_id}},\n  \"packageName\": \"com.letuapp.reader\",\n  \"time\": time,\n  \"token\": \"\",\n  \"marketChannel\": \"xiaomi\",\n  \"appId\": \"\",\n  \"sysVer\": \"7.1.2\",\n  \"osType\": \"2\",\n  \"udid\": \"1f705dac-2eec-3045-96be-713264df32c2\",\n  \"ver\": \"1.4.1\",\n  \"product\": \"1\"\n};\noption = {\n  \"method\": \"POST\",\n  \"body\": JSON.stringify(body)\n};\n\"/chapter/text,\" + JSON.stringify(option);",
-      "nextTocUrl": "<js>\nresult;\n</js>$.data.chapter_list[-1].last_chapter\n@js:\nfunction sign(list){\n    var sb='p33d3d7giyv8hlsd';\n    list=list.sort();\n    for(var i=0;i<list.length;i++){if(i==0){sb+=list[i];}else{sb+=\"&\";sb+=list[i];}}\n    sb+=\"ac9de0edzhozh5fwcqi3bn0w5cqvht0u\";\n    return String(java.md5Encode(sb)).toUpperCase();\n}\ntime=Math.round(new Date()/1000);\nlist=[\"book_id=\"+java.get('bid'),\"chapter_id=\"+result[0],\"scroll_type=1\",\"packageName=com.letuapp.reader\",\"time=\"+time,\"token=\",\"marketChannel=xiaomi\",\"appId=\",\"sysVer=7.1.2\",\"osType=2\",\"udid=1f705dac-2eec-3045-96be-713264df32c2\",\"ver=1.4.1\",\"product=1\"];\nbody={\"sign\":sign(list),\"book_id\":String(java.get('bid')),\"chapter_id\":String(result[0]),\"scroll_type\":\"1\",\"packageName\":\"com.letuapp.reader\",\"time\":time,\"token\":\"\",\"marketChannel\":\"xiaomi\",\"appId\":\"\",\"sysVer\":\"7.1.2\",\"osType\":\"2\",\"udid\":\"1f705dac-2eec-3045-96be-713264df32c2\",\"ver\":\"1.4.1\",\"product\":\"1\"};\noption={\"method\":\"POST\",\"body\":JSON.stringify(body)};\n\"/chapter/new-catalog,\" + JSON.stringify(option);\n\n",
+      "nextTocUrl": "<js>\nresult;\n</js>$.data.chapter_list[-1].last_chapter\n@js:function sign(list) {\n  var sb = 'p33d3d7giyv8hlsd';\n  list = list.sort();\n  for (var i = 0; i < list.length; i++) {\n    if (i == 0) {\n      sb += list[i];\n    } else {\n      sb += \"&\";\n      sb += list[i];\n    }\n  }\n  sb += \"ac9de0edzhozh5fwcqi3bn0w5cqvht0u\";\n  return String(java.md5Encode(sb)).toUpperCase();\n}\ntime = Math.round(new Date() / 1000);\nlist = [\"book_id=\" + java.get('bid'), \"chapter_id=\" + result[0], \"scroll_type=1\", \"packageName=com.letuapp.reader\", \"time=\" + time, \"token=\", \"marketChannel=xiaomi\", \"appId=\", \"sysVer=7.1.2\", \"osType=2\", \"udid=1f705dac-2eec-3045-96be-713264df32c2\", \"ver=1.4.1\", \"product=1\"];\nbody = {\n  \"sign\": sign(list),\n  \"book_id\": String(java.get('bid')),\n  \"chapter_id\": String(result[0]),\n  \"scroll_type\": \"1\",\n  \"packageName\": \"com.letuapp.reader\",\n  \"time\": time,\n  \"token\": \"\",\n  \"marketChannel\": \"xiaomi\",\n  \"appId\": \"\",\n  \"sysVer\": \"7.1.2\",\n  \"osType\": \"2\",\n  \"udid\": \"1f705dac-2eec-3045-96be-713264df32c2\",\n  \"ver\": \"1.4.1\",\n  \"product\": \"1\"\n};\noption = {\n  \"method\": \"POST\",\n  \"body\": JSON.stringify(body)\n};\n\"/chapter/new-catalog,\" + JSON.stringify(option);",
       "updateTime": "\n"
     },
     "searchUrl": "@js:function sign(list) {\n  var sb = 'p33d3d7giyv8hlsd';\n  list = list.sort();\n  for (var i = 0; i < list.length; i++) {\n    if (i == 0) {\n      sb += list[i];\n    } else {\n      sb += \"&\";\n      sb += list[i];\n    }\n  }\n  sb += \"ac9de0edzhozh5fwcqi3bn0w5cqvht0u\";\n  return String(java.md5Encode(sb)).toUpperCase();\n}\ntime = Math.round(new Date() / 1000);\nlist = [\"packageName=com.letuapp.reader\", \"time=\" + time, \"token=\", \"marketChannel=xiaomi\", \"appId=\", \"page_num=\" + page, \"sysVer=7.1.2\", \"osType=2\", \"keyword=\" + key, \"udid=1f705dac-2eec-3045-96be-713264df32c2\", \"ver=1.4.1\", \"product=1\"];\nbody = {\n  \"sign\": sign(list),\n  \"packageName\": \"com.letuapp.reader\",\n  \"time\": time,\n  \"token\": \"\",\n  \"marketChannel\": \"xiaomi\",\n  \"appId\": \"\",\n  \"page_num\": page,\n  \"sysVer\": \"7.1.2\",\n  \"osType\": \"2\",\n  \"keyword\": key,\n  \"udid\": \"1f705dac-2eec-3045-96be-713264df32c2\",\n  \"ver\": \"1.4.1\",\n  \"product\": \"1\"\n};\noption = {\n  \"method\": \"POST\",\n  \"body\": JSON.stringify(body)\n};\n\"/book/search,\" + JSON.stringify(option);",
@@ -5591,7 +5591,7 @@
       "wordCount": "words_number"
     },
     "ruleContent": {
-      "content": "data.content@js:java.aesBase64DecodeToString(result,\"Pxga!h*e4@T8xfOm\",\"AES/CBC/PKCS5Padding\",\"E&z!EHGLd$fli*8R\")",
+      "content": "data.content@js:java.aesBase64DecodeToString(result, \"Pxga!h*e4@T8xfOm\", \"AES/CBC/PKCS5Padding\", \"E&z!EHGLd$fli*8R\");",
       "replaceRegex": "##最新网址：\\s"
     },
     "ruleExplore": {},
@@ -5607,7 +5607,7 @@
     },
     "ruleToc": {
       "chapterList": "data",
-      "chapterName": "name@js:java.aesBase64DecodeToString(result,\"Pxga!h*e4@T8xfOm\",\"AES/CBC/PKCS5Padding\",\"E&z!EHGLd$fli*8R\")",
+      "chapterName": "name@js:java.aesBase64DecodeToString(result, \"Pxga!h*e4@T8xfOm\", \"AES/CBC/PKCS5Padding\", \"E&z!EHGLd$fli*8R\");",
       "chapterUrl": "https://chapter.fjwhcbsh.com/{{$.path}}",
       "updateTime": "发布于 {{java.timeFormat(java.getString('$.updated_at')*1000)}}"
     },
@@ -5806,7 +5806,7 @@
     "ruleSearch": {
       "author": "$.resourceInfo.author||$.magInfo.company",
       "bookList": "<js>\neval(String(source.bookSourceComment));\nvar data = {\n  timeStamp: Date.now(),\n  bigType: \"0\",\n  pageSize: 100,\n  pageNum: 1\n};\nif (baseUrl.match(/categoryId/)) {\n  data.categoryId = baseUrl.match(/categoryId=(\\d+)/)[1];\n  url = getPostUrl(data, 'qryCategoryResList');\n} else {\n  data.content = String(java.get('key'));\n  url = getPostUrl(data, 'qrySearchList');\n}\njava.ajax(url);\n</js>\n$.returnObject.resAndMagResult[*]||$.returnObject[*]",
-      "bookUrl": "$.resourceInfo.resId||$.magInfo.magId\n@js:\neval(String(source.getSource​().bookSourceComment))\nvar data = {\n timeStamp:Date.now(),\n pageSize:10000,\n pageNum:1\n};\n//目录链接生成\nif('{{$.magInfo.brandId}}'){\ndata.magId=result;\ngetPostUrl(data,'qryMagArticleList');\n}else{data.resourceId=result;getPostUrl(data,'qryChapterList');}",
+      "bookUrl": "$.resourceInfo.resId||$.magInfo.magId\n@js:eval(String(source.bookSourceComment));\nvar data = {\n  timeStamp: Date.now(),\n  pageSize: 10000,\n  pageNum: 1\n};\nif ('{{$.magInfo.brandId}}') {\n  data.magId = result;\n  getPostUrl(data, 'qryMagArticleList');\n} else {\n  data.resourceId = result;\n  getPostUrl(data, 'qryChapterList');\n}",
       "coverUrl": "$.resourceInfo.coverUrl@put:{type:$.resourceInfo.type}",
       "intro": "$.resourceInfo.shortIntro||$.magInfo.description",
       "kind": "$.resourceInfo.categoryName||$.magInfo.categoryName",
@@ -5815,7 +5815,7 @@
     "ruleToc": {
       "chapterList": "$.returnObject[0].children||$.returnObject<js>\nvar userId = cookie.getKey(\"http://m.ndlib.cn\", \"userId\");\nvar siteId = cookie.getKey(\"http://m.ndlib.cn\", \"siteId\");\nvar wapToken = cookie.getKey(\"http://m.ndlib.cn\", \"wapToken\");\nvar userId = userId;\nvar deskey = wapToken;\nvar siteId = siteId;\njava.put('userId', userId);\njava.put('deskey', deskey);\njava.put('siteId', siteId);\na = [{\n  \"chapterName\": \"暂无目录\",\n  \"chapterId\": \"000\"\n}];\nresult = result != \"[]\" ? result : JSON.stringify(a);\n</js>\n$.[*]",
       "chapterName": "$.chapterName||$.title",
-      "chapterUrl": "$.chapterId||$.articleId@js:\neval(String(source.getSource​().bookSourceComment))\nvar data = {\n timeStamp:Date.now(),\n uaInfo:'1', \n };\nif('{{$.articleId}}'){\ndata.articleId=result;\ngetPostUrl(data,'qryMagArticleDetail');\n}else{\ndata.chapterId=result;\nif(java.get('type')=='4'){\ngetPostUrl(data,'qryFileInfo');}\nelse{getPostUrl(data,'qryChapterDetails')}\n}",
+      "chapterUrl": "$.chapterId||$.articleId@js:eval(String(source.bookSourceComment));\nvar data = {\n  timeStamp: Date.now(),\n  uaInfo: '1'\n};\nif ('{{$.articleId}}') {\n  data.articleId = result;\n  getPostUrl(data, 'qryMagArticleDetail');\n} else {\n  data.chapterId = result;\n  if (java.get('type') == '4') {\n    getPostUrl(data, 'qryFileInfo');\n  } else {\n    getPostUrl(data, 'qryChapterDetails');\n  }\n}",
       "updateTime": "$.addTime"
     },
     "searchUrl": "http://m.ndlib.cn/03/html/searchresult.html?search={{key;java.put('key',key)}}type=0&page={{page;java.put('page',page)}}",
@@ -5868,7 +5868,7 @@
       "coverUrl": "$.cover",
       "intro": "$.abstract",
       "kind": "$.tags[*].tag&&$.kind&&$.category",
-      "lastChapter": "$.fixed_price&&$.price@js:\nif(result){\na=result.match(/(.*?)\\n(.*)/);\nb=a[1]/100?a[1]/100:0;\nc=a[2]/100?a[2]/100:0;\nresult=\"原价:\"+b+\"元\"+\"💡特价:\"+c+\"元\"}",
+      "lastChapter": "$.fixed_price&&$.price@js:if (result) {\n  a = result.match(/(.*?)\\n(.*)/);\n  b = a[1] / 100 ? a[1] / 100 : 0;\n  c = a[2] / 100 ? a[2] / 100 : 0;\n  result = \"原价:\" + b + \"元\" + \"💡特价:\" + c + \"元\";\n}",
       "name": "$.title"
     },
     "ruleToc": {
@@ -6191,7 +6191,7 @@
       "coverUrl": "https://fengmiantu.cdn.bcebos.com{{$.book_img}}",
       "init": "<js>\njava.aesBase64DecodeToString(JSON.parse(result).data, \"NOVELS2019031200\", \"AES/ECB/PKCS5Padding\", \"\");\n</js>$",
       "intro": "book_desc##(^|[。！？]+[”」）】]?)##$1<br>",
-      "kind": "{{$.book_type}},{{java.timeFormat(result.update_time*1000)}}@js:result.replace(/\\s.*/g,'').replace(/\\//g,'-')",
+      "kind": "{{$.book_type}},{{java.timeFormat(result.update_time*1000)}}@js:result.replace(/\\s.*/g, '').replace(/\\//g, '-');",
       "lastChapter": "new_chapter",
       "name": "book_title",
       "tocUrl": "/s/book_chapter_list2/{{parseInt(java.get('id')%1000)}}/{{$.book_id}}/{{$.book_id}}.txt"
@@ -6207,7 +6207,7 @@
       "bookUrl": "/s/book_info2/{{parseInt(java.get('id')%1000)}}/{{$.book_id}}/{{$.book_id}}.txt",
       "coverUrl": "https://fengmiantu.cdn.bcebos.com{{$.book_img}}",
       "intro": "book_desc",
-      "kind": "{{$.book_type}},{{java.timeFormat(java.getString('$.book_new_time')*1000)}}@js:result.replace(/\\s.*|1970.*/g,'').replace(/\\//g,'-')",
+      "kind": "{{$.book_type}},{{java.timeFormat(java.getString('$.book_new_time')*1000)}}@js:result.replace(/\\s.*|1970.*/g, '').replace(/\\//g, '-');",
       "lastChapter": "book_new_chapter",
       "name": "book_title@put:{id:$.book_id}"
     },

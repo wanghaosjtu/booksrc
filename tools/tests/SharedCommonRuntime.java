@@ -10,14 +10,17 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import io.legado.app.utils.HtmlFormatter;
 import io.legado.app.utils.NetworkUtils;
+import io.legado.app.data.entities.BookChapter;
 
 /** Real engine/DOM/parser; importScript is stubbed, not a phone network test. */
 public final class SharedCommonRuntime {
     private final Object context, scope;
     private final Method evaluate, put;
+    private final Class<?> wrapper;
     private int checks, compiledScripts;
     private SharedCommonRuntime(String engine) throws Exception {
         Class<?> cx = Class.forName(engine + ".Context");
+        wrapper = Class.forName(engine + ".Wrapper");
         context = cx.getMethod("enter").invoke(null);
         cx.getMethod("setOptimizationLevel", int.class).invoke(context, -1);
         scope = cx.getMethod("initStandardObjects").invoke(context);
@@ -208,7 +211,8 @@ public final class SharedCommonRuntime {
                 + "if(k==='jsLib'||k==='bookSourceComment')continue;"
                 + "if(k==='loginCheckJs'||k==='webJs'){scripts.push({field:f,code:v});continue;}"
                 + "if(k==='loginUrl'&&!/^https?:/.test(v)){scripts.push({field:f,code:v.replace(/^\\s*(?:<js>|@js:)/,'').replace(/<\\/js>\\s*$/,'')});continue;}"
-                + "if(v.indexOf('@js:')===0){scripts.push({field:f,code:v.substring(4)});continue;}var re=/<js>([\\s\\S]*?)<\\/js>/gi,m;while((m=re.exec(v)))scripts.push({field:f,code:m[1]});}}collect(fixture,'source');"
+                + "var values=[v];if(k==='exploreUrl'&&v.indexOf('@js:')!==0){values=[];var entries=v.split(/\\r?\\n/);for(var q=0;q<entries.length;q++){var split=entries[q].indexOf('::');if(split>=0)values.push(entries[q].substring(split+2));}}"
+                + "for(var q=0;q<values.length;q++){var re=/<js>([\\s\\S]*?)<\\/js>|@js:([\\s\\S]*)/gi,m;while((m=re.exec(values[q])))scripts.push({field:f,code:m[2]===undefined?m[1]:m[2]});}}}collect(fixture,'source');"
                 + "if(fixture.loginUi&&fixture.loginUi.indexOf('@js:')===0){var rows=JSON.parse(eval(fixture.loginUi.substring(4)));for(var r=0;r<rows.length;r++)if(rows[r].action)scripts.push({field:'loginUi.action.'+r,code:rows[r].action});}");
             int count=((Number)one.eval("scripts.length")).intValue();
             Method compile=Class.forName(engine+".Context").getMethod("compileString",String.class,String.class,int.class,Object.class);
@@ -293,6 +297,133 @@ public final class SharedCommonRuntime {
             check(NetworkUtils.INSTANCE.getAbsoluteURL(base,raw).equals(absolute[i]),"native BookInfo URL method resolves cover case "+i);
         }
     }
+    private void selectFinalRule(String id,String field) throws Exception {
+        bind("__urlId",id);bind("__urlField",field);
+        String code=String.valueOf(eval("(function(){var list=JSON.parse(String(__allSources));for(var i=0;i<list.length;i++){var s=list[i];if(s.bookSourceUrl!==String(__urlId))continue;"
+            +"var f=String(__urlField).split('.'),rule=s[f[0]][f[1]],m=/<js>([\\s\\S]*?)<\\/js>|@js:([\\s\\S]*)/i.exec(rule);if(!m)throw new Error('final URL JS missing');return m[2]===undefined?m[1]:m[2];}throw new Error('final URL source missing');})()"));
+        bind("__urlCode",code);
+    }
+    private String finalResult(String input,String base) throws Exception {
+        bind("result",input);bind("baseUrl",base);
+        Object value=eval("eval(String(__urlCode))");
+        // RhinoScriptEngine unwraps Java-backed rule results before
+        // AnalyzeRule.getString calls toString. Jsoup attr returns one.
+        if(wrapper.isInstance(value))value=wrapper.getMethod("unwrap").invoke(value);
+        return String.valueOf(value);
+    }
+    private void nativeFinalRuleUrls() throws Exception {
+        eval("function common(){return {resolveRequest:_ltResolveRequest};}var book={coverUrl:''};var urlAjaxCalls=0;"
+            +"var java={ajax:function(){urlAjaxCalls++;return String(__otherPage);},get:function(){return 'https://ieeexplore.ieee.org/issue/page.html';},log:function(){}};");
+        String[][] fields={
+            {"https://www.state.gov","ruleToc.chapterUrl"},{"http://www.ccg.org.cn","ruleSearch.bookUrl"},
+            {"http://www.ccg.org.cn","ruleToc.chapterUrl"},{"https://cssn.cn/","ruleExplore.bookUrl"},
+            {"https://cssn.cn/","ruleToc.chapterUrl"},{"https://mid.ru","ruleToc.chapterUrl"},
+            {"https://russiancouncil.ru/","ruleExplore.bookUrl"},{"https://russiancouncil.ru/","ruleToc.chapterUrl"},
+            {"https://russiancouncil.ru/","ruleToc.nextTocUrl"},{"https://russtrat.ru","ruleToc.chapterUrl"},
+            {"https://riss.ru","ruleToc.chapterUrl"},{"https://navi.cnki.net/knavi/journals/KJGC/detail?uniplatform=NZKPT","ruleToc.chapterUrl"}
+        };
+        String base="https://site.example.test/dir/current/toc.html";
+        String options=",{\"webView\":true,\"headers\":{\"X-Sig\":\"a%2Fb+1\"},\"js\":\"String(result)\"}";
+        String[] raw={"//cdn.example.test/a.svg?sig=a%2Fb+1","/chapter/next.html","../chapter/next.html","./next.html","next.html", "https://other.test/a?sig=a%2Fb+1", "../next.html"+options};
+        String[] absolute={"https://cdn.example.test/a.svg?sig=a%2Fb+1","https://site.example.test/chapter/next.html","https://site.example.test/dir/chapter/next.html","https://site.example.test/dir/current/next.html","https://site.example.test/dir/current/next.html",raw[5],"https://site.example.test/dir/next.html"+options};
+        for(String[] field:fields){
+            selectFinalRule(field[0],field[1]);
+            for(int i=0;i<raw.length;i++){
+                String output=finalResult(raw[i],base);
+                check(output.equals(raw[i]),field[0]+" "+field[1]+" real Rhino raw URL "+i);
+                check(NetworkUtils.INSTANCE.getAbsoluteURL(base,output).equals(absolute[i]),"native BookList/BookInfo/pagination resolution "+field[0]+" "+i);
+                check(new BookChapter(base,output,"",false).getAbsoluteURL().equals(absolute[i]),"actual BookChapter preserves path/options "+field[0]+" "+i);
+            }
+        }
+        selectFinalRule("https://russiancouncil.ru/","ruleToc.chapterUrl");
+        check(finalResult("",base).equals(base),"RIAC empty chapter fallback survives native execution");
+        selectFinalRule("https://www.state.gov","ruleToc.chapterUrl");
+        check(finalResult(" ../first.html\n/second.html ",base).equals("../first.html"),"State first-line selection survives native execution");
+        selectFinalRule("https://www.state.gov","ruleToc.nextTocUrl");
+        check(finalResult("[//cdn.example.test/page/9/]","https://www.state.gov/bureaus/page/8/").equals("//cdn.example.test/page/9/"),"State pagination stays relative");
+        check(finalResult("/bureaus/page/11/","https://www.state.gov/bureaus/page/10/").isEmpty(),"State ten-page cap survives");
+        String[][] next={
+            {"http://www.ccg.org.cn","<div class='page'><div class='page_list'><a href='/news/page/2/'>2</a></div></div>","/news/page/2/"},
+            {"https://cssn.cn/","<a href='../index_2.shtml'>下一页</a>","../index_2.shtml"},
+            {"https://mid.ru","<div class='pager'><a href='//mid.ru/news/page/2/'>вперед</a></div>","//mid.ru/news/page/2/"}
+        };
+        for(String[] row:next){selectFinalRule(row[0],"ruleToc.nextTocUrl");check(finalResult(row[1],base).equals(row[2]),row[0]+" Jsoup next-page selection stays relative");}
+        selectFinalRule("https://russtrat.ru","ruleToc.nextTocUrl");
+        check(String.valueOf(eval("result=['page=2','/analytics?page=3','//cdn.example.test/a?page=4','page=2','no-pagination'];JSON.stringify(eval(String(__urlCode)))"))
+            .equals("[\"/analytics?page=2\",\"/analytics?page=3\",\"//cdn.example.test/a?page=4\"]"),"Russtrat builds bare page query but retains relative paths and deduplication");
+        selectFinalRule("https://riss.ru","ruleToc.nextTocUrl");
+        check(String.valueOf(eval("result=['/news/?PAGEN_1=2','//other.test/?PAGEN_1=3','/news/?PAGEN_1=2','no-pagination'];JSON.stringify(eval(String(__urlCode)))"))
+            .equals("[\"/news/?PAGEN_1=2\",\"//other.test/?PAGEN_1=3\"]"),"RISS pagination filtering and deduplication survive");
+        selectFinalRule("https://www.state.gov","ruleBookInfo.coverUrl");
+        base="https://www.state.gov/bureaus/press-releases/archive.html";
+        String spokes="https://www.state.gov/bureaus-offices/under-secretary-for-public-diplomacy-and-public-affairs/bureau-of-global-public-affairs/office-of-the-spokesman/";
+        for(String image:new String[]{"//cdn.example.test/cover.svg","/images/cover.svg","../cover.svg?sig=a%2Fb+1"}){
+            String output=finalResult("<div class='bureau-header__image'><img src='"+image+"'></div>",base);
+            check(output.equals(image),"State same-page cover stays relative");
+            check(new java.net.URL(new java.net.URL(base),image).toString().equals(NetworkUtils.INSTANCE.getAbsoluteURL(base,output)),"State cover uses native BookInfo asset base");
+        }
+        check(((Number)eval("urlAjaxCalls")).intValue()==0,"same-page covers do not fetch another page");
+        bind("__otherPage","<img class='wp-block-cover__image-background' src='images/cover.svg?sig=a%2Fb+1'>");
+        String cross=finalResult("<p>No local cover</p>",base);
+        check(cross.equals(spokes+"images/cover.svg?sig=a%2Fb+1"),"cross-page cover resolves against SPOKES, not the current chapter");
+        check(((Number)eval("urlAjaxCalls")).intValue()==1,"cross-page fetch remains exactly once");
+        bind("__otherPage","<img class='wp-block-cover__image-background' src='data:image/svg+xml;base64,PHN2Zy8+'>");
+        check(finalResult("<p>No local cover</p>",base).equals("data:image/svg+xml;base64,PHN2Zy8+"),"cross-page data URI is already self-contained and is not dropped by request resolution");
+        bind("__otherPage","<p>No remote cover</p>");
+        eval("book.coverUrl='/existing-cover.svg';");
+        check(finalResult("<p>No local cover</p>",base).equals("/existing-cover.svg"),"State existing book cover fallback remains relative");
+        selectFinalRule("https://www.state.gov","ruleSearch.coverUrl");
+        check(finalResult("<div class='bureau-header__image'><img src='../search-cover.svg'></div>",base).equals("../search-cover.svg"),"State search cover stays relative");
+        selectFinalRule("https://www.state.gov","ruleExplore.coverUrl");
+        check(String.valueOf(eval("result=['book','name','//cdn.example.test/explore.svg'];eval(String(__urlCode))")).equals("//cdn.example.test/explore.svg"),"State explore cover stays protocol-relative");
+        selectFinalRule("https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=","ruleBookInfo.coverUrl");
+        bind("__otherPage","<div class='coverImage-container'><img src='https://cdn.example.test/ieee.svg'></div>");
+        eval("book.coverUrl='https://ieeexplore.ieee.org/';");
+        String ieeeOutput=finalResult("",base);
+        check(ieeeOutput.equals("https://cdn.example.test/ieee.svg"),"IEEE ajax cover output survives removal of overwritten attr lookup");
+    }
+    private void nativeHeadingModes() throws Exception {
+        String headings="";
+        for(int i=1;i<=6;i++)headings+="<h"+i+">Heading "+i+"</h"+i+">";
+        bind("__headings",headings);
+        String translated=String.valueOf(eval("TH(String(__headings),first,cc,{remove_selector:[]})"));
+        Document intermediate=Jsoup.parseBodyFragment(translated);
+        check(intermediate.select("h1,h2,h3,h4,h5,h6").size()==6,"TH preserves headings as intermediate HTML");
+        Document plain=Jsoup.parseBodyFragment(HtmlFormatter.INSTANCE.formatKeepImg(translated,new java.net.URL("https://science.example.test/article")));
+        check(plain.select("h1,h2,h3,h4,h5,h6").isEmpty(),"native Formatter removes naked Science-like headings");
+        String rich=String.valueOf(eval("ltUseHtmlBlocks(String(__headings),null)"));
+        Document protectedHtml=Jsoup.parseBodyFragment(rich);
+        check(protectedHtml.select("usehtml").size()==6&&protectedHtml.select("usehtml h1,usehtml h2,usehtml h3,usehtml h4,usehtml h5,usehtml h6").size()==6,"explicit usehtml protects all six semantic heading levels");
+    }
+    private void nativeBookListUrls() throws Exception {
+        eval("function common(){return {resolveRequest:_ltResolveRequest};}var urlLastAjax='',urlAjaxCalls=0;"
+            +"var java={get:function(){return '1';},ajax:function(u){urlLastAjax=String(u);urlAjaxCalls++;return '<p>owned year page</p>';},log:function(){}};");
+        String[] ids={"http://www.qstheory.cn/","https://cacm.acm.org/magazines","https://www.tandfonline.com/"};
+        for(String id:ids){
+            selectFinalRule(id,"ruleExplore.bookList");
+            String base=id.startsWith("http:")?"http://www.qstheory.cn/year/archive.html":id.substring(0,id.indexOf('/',8))+"/year/archive.html";
+            for(String raw:new String[]{"//cdn.example.test/year.html","/issues/year.html","../year.html?sig=a%2Fb+1","./year.html"}){
+                bind("__href",raw);bind("baseUrl",base);
+                eval("var urlDoc=org.jsoup.Jsoup.parseBodyFragment('');urlDoc.body().appendElement('a').attr('href',String(__href));result=urlDoc.select('a');urlAjaxCalls=0;eval(String(__urlCode));");
+                check(String.valueOf(eval("urlLastAjax")).equals(NetworkUtils.INSTANCE.getAbsoluteURL(base,raw)),id+" real request resolves the selected year against the response base");
+                check(((Number)eval("urlAjaxCalls")).intValue()==1,id+" year page fetch remains exactly once");
+            }
+        }
+        selectFinalRule("http://www.qstheory.cn/","ruleExplore.bookList");
+        check(Boolean.TRUE.equals(eval("result=[];urlAjaxCalls=0;eval(String(__urlCode));urlAjaxCalls===0&&result===''")),"Qiushi empty year list makes no request");
+        selectFinalRule("https://www.state.gov","ruleExplore.bookList");
+        bind("baseUrl","https://www.state.gov/countries-and-areas-list/");
+        bind("result","<a href='/countries-areas/test/'>Alpha</a><a href='https://www.state.gov/countries-areas/test/'>Duplicate Alpha</a><a href='//www.state.gov/countries-areas/beta/'>Beta</a>");
+        eval("var stateBooks=eval(String(__urlCode));");
+        check(((Number)eval("stateBooks.length")).intValue()==8,"State country deduplication keeps six bureau entries and two countries");
+        check(String.valueOf(eval("(function(){for(var i=0;i<stateBooks.length;i++)if(String(stateBooks[i][1])==='Alpha')return String(stateBooks[i][0]);})()")).equals("/countries-areas/test/"),"State country output keeps its root-relative href");
+        check(String.valueOf(eval("(function(){for(var i=0;i<stateBooks.length;i++)if(String(stateBooks[i][1])==='Beta')return String(stateBooks[i][0]);})()")).equals("//www.state.gov/countries-areas/beta/"),"State country output keeps its protocol-relative href");
+        bind("baseUrl","https://www.state.gov/bureaus-and-offices-list/");
+        bind("result","<h2 id='d'>Deputy</h2><div><a class='wp-block-button__link' href='/bureau/first/'>View first</a><a class='wp-block-button__link' href='../second/'>View second</a></div>");
+        eval("stateBooks=eval(String(__urlCode));");
+        check(((Number)eval("stateBooks.length")).intValue()==2,"State bureau selection remains unchanged");
+        check(String.valueOf(eval("String(stateBooks[0][0])")).equals("/bureau/first/")&&String.valueOf(eval("String(stateBooks[1][0])")).equals("../second/"),"State bureau final hrefs use the app's URL resolution");
+    }
     public static void main(String[] args) throws Exception {
         if (args.length < 5 || args.length > 6) throw new IllegalArgumentException("legacy common loader engine canonical [IEEE capture]");
         String legacy = read(args[0]), common = read(args[1]), loader = read(args[2]);
@@ -307,9 +438,12 @@ public final class SharedCommonRuntime {
         parser.eval("var first={get:function(){return 'en';},ajaxAll:function(){return [];},log:function(){}};var cc={get:function(){return null;},put:function(){}};");
         parser.readableAndFormulas();
         parser.serviceJson();
+        parser.nativeHeadingModes();
         parser.allLibraries(common,read(args[4]),args[3]);
         parser.nativeSourceOutputs();
+        parser.nativeFinalRuleUrls();
+        parser.nativeBookListUrls();
         System.out.println("{\"status\":\"PASS\",\"checks\":" + (first.checks + second.checks + parser.checks)
-            + ",\"engine\":\"actual-Rhino\",\"parser\":\"actual-Kotlin-RuleAnalyzer\",\"nativeFormatter\":true,\"nativeNetworkMethods\":true,\"compiledScripts\":"+parser.compiledScripts+",\"phoneNetworkVerified\":false}");
+            + ",\"engine\":\"actual-Rhino\",\"parser\":\"actual-Kotlin-RuleAnalyzer\",\"nativeFormatter\":true,\"nativeNetworkMethods\":true,\"nativeChapterUrlMethod\":true,\"compiledScripts\":"+parser.compiledScripts+",\"phoneNetworkVerified\":false}");
     }
 }

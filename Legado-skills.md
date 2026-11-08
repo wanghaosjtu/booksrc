@@ -185,6 +185,8 @@ if (arr[0] && arr[0].translations && arr[0].translations[0]) {
 
 `HtmlFormatter.formatKeepImg` 已按响应 URL 解析 `//host/path`、根路径和 `../`。不再补域名/image_base_url；common 只选 lazy/srcset/picture/anchor 地址，删除重复属性清理循环。图片必须在 usehtml 外，否则跳过原生 Formatter。跨页资产和实际 java.ajax/connect 请求仍需要正确地址，可用 `common(java).resolveRequest(value,base)`；签名查询和 URL 选项必须原样保留。
 
+最终书籍、封面、目录及分页 URL 也交给原生处理。章节字段先保存原始 URL 与响应 baseUrl，请求前由 `BookChapter.getAbsoluteURL()` 解析并保留请求选项，不是获取字段时立即转绝对地址。按完整程序指纹移除重复域名前缀，不删除 HTTPS→HTTP 镜像、跨页资产基准或 API/CDN 请求构建。State.gov 书单只对国家去重键解析地址，输出 href 保持原值；从 SPOKES 另取封面时明确用 SPOKES 基准。求是/CACM/Taylor 的年份页仍是真实 ajax 请求，用一次 resolveRequest 替代手写补域名。Jsoup 的 text() 先 String(...) 再使用 JS 的正则 replace/length。
+
 ### 5. 调试与验证
 
 书源编写完成后，**必须通过调试验证**，确保「发现 → 书籍 → 目录 → 正文」全流程可用。非中文网站还需验证翻译功能。
@@ -590,6 +592,8 @@ node tools/shared_common_phone.js verify booksource/.usehtml-validation-phone/<n
 ```
 
 迁移按 AST 拆分所有内联/网络 common，保留标记前后站点代码，拒绝混合声明/未知猴补丁。无 common 的可选 TH 分支只接入图片处理，不意外开启翻译。候选基于最新手机对象，保留手机登录、名称、非正文规则、启用状态等用户差异；本地 canonical 的无关字段也不改。部署前比较当前源与完整备份，发现用户改动就停止；保存后完整读回并为每源写私有 journal。只读连接重置可有限重试，写入错误须先读回，不盲目重发。不要重复同一目录的 `--write`。
+
+规则 JS 提取严格对应原生 `AppPattern.JS_PATTERN` 的 `<js>...</js>|@js:...`，覆盖 CSS/XPath 后的 `@js:` 混合规则。exploreUrl 的各个 `名称::URL` 独立提取，不能把下一分类吞进贪婪 @js 程序；bookSourceComment 是备注/动态库载体，不当作规则 JS 解析。移动阅读已核对的零宽字符 getter 定向修成 source.bookSourceComment，保留备注中的 DES 字节。
 
 `phone-priority-candidate.json` 是从全量候选精确筛选上述三个身份的私有文件；不是完整验收。`verify` 必须核对全部 canonical 候选和未迁移的实验源。回滚只恢复 `phone-targets-before.json` 中实际部署的对象，先确认当前源仍等于本次部署版本；不要导入整个备份覆盖其他源，不清除原书缓存。
 

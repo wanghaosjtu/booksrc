@@ -83,6 +83,56 @@ const LEGACY_WEB_PROGRAMS=new Set([
   '00480250ff5c6fb7d3e92460825ec1b84f2526ad4ac1cbfb18011455fd8b23cd',
   'e3e1a87d2d309f92432b4335cf9cab145b2171e86109ae42f8ce20602355684a'
 ]);
+// Final BookList/BookInfo/BookChapter/pagination output is resolved by the
+// app. Match whole audited programs, never a user's edited prefix helper.
+const FINAL_URL_RULES={
+  'https://www.state.gov':{
+    'ruleBookInfo.coverUrl':['a954026c246f63706b68f44fea70b769eba97e39536703d15d245efa6fe1d852','cross-cover'],
+    'ruleExplore.coverUrl':['2e441f17cfc62abf0291bbd7a51e6554a6f30f2c789d78e1ee809cead8474fc3'],
+    'ruleSearch.coverUrl':['059c312bd3604727d73e77edd77b9272c64bf162e24a909d1775803f96f51de6'],
+    'ruleToc.chapterUrl':['aadd5a072be06a7cbbfc1fc4081457509e52bc4456225cbb48a0df8675099132'],
+    'ruleToc.nextTocUrl':['5b93dd39025d42dd8d0426e092c8ea01ded7f6d9a26ea4e78dc559ecdfc1e0c6']
+  },
+  'http://www.ccg.org.cn':{
+    'ruleSearch.bookUrl':['f8255f7ce7ccd2610c0ab085804b07c5e19c4efa718113eb35c361976de80d08'],
+    'ruleToc.chapterUrl':['fef1af87715ec5fbb9279e79fef670bb4a729fda1ebad17298fe4061207478c1'],
+    'ruleToc.nextTocUrl':['98f40d5dd6ce18d09fcd5f851778f31b568ef9ed7b39587223975c0d2c83dde4']
+  },
+  'https://cssn.cn/':{
+    'ruleExplore.bookUrl':['bd92fa4ae23a576868f8f160fa5461ecba435b7885b9a26643123b6c563aeeba'],
+    'ruleToc.chapterUrl':['7bd74a727a8d18ccb12b42be776747494ded2d9bbd54f74e5a96c6a570e18b99'],
+    'ruleToc.nextTocUrl':['b4d41d89ae00bc955470dfd648ceb492feb6e47044c6972e3e429557dfbbdfef']
+  },
+  'https://mid.ru':{
+    'ruleToc.chapterUrl':['814195fb13626cd8460a791aa11bdd3cec69a64779eed347bbc5db66770ba31b','string'],
+    'ruleToc.nextTocUrl':['fd9c30ee9bec721b3605528a896648b8a627bf5ffc8a780365aa694835bf80fc']
+  },
+  'https://russiancouncil.ru/':{
+    'ruleExplore.bookUrl':['aeb7d900bd9bc052c254868e977b9b4b3acc60964b5197af038d63890adeab72'],
+    'ruleToc.chapterUrl':['dca5919a8ded60b7343f90f68627a3de062704f1cfb74fb7a048c12846c9c9b1'],
+    'ruleToc.nextTocUrl':['aeb7d900bd9bc052c254868e977b9b4b3acc60964b5197af038d63890adeab72']
+  },
+  'https://russtrat.ru':{
+    'ruleToc.chapterUrl':['2c802ca429d27316ba4268a321c4b16cb152d2e7fadb397f47046760654bfbd8','string'],
+    'ruleToc.nextTocUrl':['a18235595a6d509f219c69d5827064d098d1bddad5bbc50d436502e662714ed4','pagination-query']
+  },
+  'https://riss.ru':{
+    'ruleToc.chapterUrl':['c2d7828815cb282fa41ad4783f0b1ed25bef05895f26b3b779078b0f71cb6bfa','string'],
+    'ruleToc.nextTocUrl':['bde0670e1a7a62bb858395f98579c0fc1ea54e0993356893d1e79cce00c2dae6']
+  },
+  'https://navi.cnki.net/knavi/journals/KJGC/detail?uniplatform=NZKPT':{
+    'ruleToc.chapterUrl':['10668da5b43c0ee4ec1376c63db77f097527ae21b0946c84fff5fcd28b20d270']
+  },
+  'https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=':{
+    'ruleBookInfo.coverUrl':['caebef6bb5418e6c91c51dec3968afabc2b9a20e316e8161727a04a8189edc2f','ieee-cover']
+  }
+};
+const BOOK_LIST_URL_RULES={
+  'https://www.state.gov':['760e420189ef53c84fa65f1748132c23bddcd5ea7f2ba56bf04f9c2ba02a85ec','final-list'],
+  'http://www.qstheory.cn/':['fb05ca83d18182f18a87ecde9596439a245c7ce7e640e0ca9f88a64567c06f6c','request'],
+  'https://cacm.acm.org/magazines':['6693bf3e6bd2a53ef5ea09944fe5981c6687a0bde8d15821a84ce808b47fdc05','request'],
+  'https://www.tandfonline.com/':['12f2d5f07f98c78545313989cf56e9e0fbe8c0386a807ee68cdfe649cf81c025','request']
+};
 function parse(code) {
   const templates=[];
   let prefix='LEGADO_TEMPLATE_';while(String(code).includes(prefix))prefix+='X';
@@ -436,6 +486,65 @@ function nativeOutputUrls(tree,kind) {
     });
   });
 }
+function simplifyFinalUrl(code,sourceUrl,field) {
+  const audited=FINAL_URL_RULES[sourceUrl]?.[field];
+  if(!audited)return code;
+  let tree=parse(code);
+  const fingerprint=hash(js(tree)),mode=audited[1];
+  const relativeCover=()=>parse('if(u&&imageBase&&!/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(u))u=common(java).resolveRequest(u,imageBase);').body[0];
+  // Upgrade only our complete intermediate cross-page cover program. An
+  // edited rule is not inferred from an imageBase variable or a call name.
+  if(mode==='cross-cover'&&fingerprint==='6475d798a2f546a0a39a61380e00ce2a8bf8ab0f7afa4af9dd3daaab6e544dbe')return js(transform(tree,n=>n.type==='IfStatement'&&js(n.test)==='u && imageBase'?relativeCover():n));
+  if(fingerprint!==audited[0])return code;
+  // String conversion suffices; any Array.isArray test after it was dead.
+  if(mode==='string')return 'String(result || "");';
+  const deadIeee=js(parse("result='https://ieeexplore.ieee.org'+elements.attr('src');").body[0]);
+  tree=transform(tree,n=>{
+    if(mode==='ieee-cover')return n.type==='ExpressionStatement'&&js(n)===deadIeee?{type:'EmptyStatement'}:n;
+    if(n.type!=='IfStatement'||!/\.(?:indexOf|startsWith)\((['"])http\1\)/.test(js(n.test)))return n;
+    if(mode==='pagination-query')return parse("if(u.indexOf('http')<0&&!u.startsWith('/'))u='/analytics?'+u;").body[0];
+    return {type:'EmptyStatement'};
+  });
+  if(mode==='cross-cover') {
+    // A cover fetched from the SPOKES page has a different asset base; only
+    // that branch resolves explicitly. Same-page images stay native output.
+    tree.body.splice(2,0,...parse('var imageBase="";').body);
+    const fetched=tree.body.find(n=>n.type==='IfStatement'&&js(n.test).startsWith('!img &&'));
+    assert(fetched?.consequent.type==='BlockStatement','audited cross-page cover branch required');
+    fetched.consequent.body.push(...parse('imageBase=SPOKES;').body);
+    const output=tree.body.findIndex(n=>n.type==='VariableDeclaration'&&n.declarations.some(d=>d.id.name==='u'));
+    assert(output>=0,'audited cover value required');
+    tree.body.splice(output+1,0,relativeCover());
+  }
+  tree=transform(tree,n=>{
+    if(n.type==='Program'||n.type==='BlockStatement')n.body=n.body.filter(s=>s.type!=='EmptyStatement');
+    if(n.type==='IfStatement'&&!n.alternate&&(n.consequent.type==='EmptyStatement'||n.consequent.type==='BlockStatement'&&!n.consequent.body.length))return {type:'EmptyStatement'};
+    return n;
+  });
+  return js(tree);
+}
+function simplifyBookListUrls(code,sourceUrl,field) {
+  const audited=field==='ruleExplore.bookList'&&BOOK_LIST_URL_RULES[sourceUrl];
+  if(!audited)return code;
+  let tree=parse(code);
+  if(hash(js(tree))!==audited[0])return code;
+  tree=transform(tree,n=>{
+    if(n.type==='IfStatement'&&/\.(?:indexOf|startsWith)\((['"])http\1\)/.test(js(n.test))) {
+      if(audited[1]==='final-list')return {type:'EmptyStatement'};
+      return parse('yearurl=common(java).resolveRequest(yearurl,baseUrl'+(sourceUrl==='http://www.qstheory.cn/'?'||"http://www.qstheory.cn/"':'')+');').body[0];
+    }
+    if(audited[1]==='request'&&n.type==='ExpressionStatement'&&n.expression.type==='AssignmentExpression'&&n.expression.left.name==='basehost'&&n.expression.right.type==='Literal')return {type:'EmptyStatement'};
+    if(audited[1]==='final-list'&&n.type==='VariableDeclarator'&&n.id.name==='key'&&js(n.init)==='href.toLowerCase()')n.init=expression('common(java).resolveRequest(href,baseUrl).toLowerCase()');
+    if(audited[1]==='final-list'&&n.type==='VariableDeclarator'&&['name','txt'].includes(n.id.name)&&memberCall(n.init,'trim')){
+      // Jsoup text() is a Java String. Regex replace and .length below need
+      // an actual JS string, not Java's overloaded String methods.
+      n.init.callee.object={type:'CallExpression',callee:id('String'),arguments:[n.init.callee.object],optional:false};
+    }
+    if(n.type==='Program'||n.type==='BlockStatement')n.body=n.body.filter(s=>s.type!=='EmptyStatement');
+    return n;
+  });
+  return js(tree);
+}
 function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNames=new Set(),inactiveCommon=false,errorPolicy='empty'}={}) {
   let tree=parse(code);
   const replacement=LEGACY_TRANSLATIONS[hash(js(tree))];if(replacement)tree=parse(replacement);
@@ -499,7 +608,18 @@ function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNa
   return js(tree);
 }
 function segments(text,fn) {
-  return text.replace(/<js>([\s\S]*?)<\/js>/gi,(_,code)=>'<js>\n'+fn(code)+'\n</js>');
+  // Keep the exact alternatives/order of AppPattern.JS_PATTERN. @js can
+  // follow a CSS/XPath selector, not just appear at the start of a field.
+  return text.replace(/<js>([\s\S]*?)<\/js>|@js:([\s\S]*)/gi,(_,tag,tail)=>tag!==undefined?'<js>\n'+fn(tag)+'\n</js>':'@js:'+fn(tail));
+}
+function rulePrograms(text) {
+  return [...String(text).matchAll(/<js>([\s\S]*?)<\/js>|@js:([\s\S]*)/gi)].map(m=>m[2]??m[1]);
+}
+function fieldPrograms(text,key) {
+  if(key==='exploreUrl'&&!/^@js:/i.test(text))return String(text).split(/\r?\n/).flatMap(line=>{
+    const split=line.indexOf('::');return split<0?[]:rulePrograms(line.slice(split+2));
+  });
+  return rulePrograms(text);
 }
 function uiAction(action) {
   if(!action)return action;
@@ -619,7 +739,7 @@ function simplifySource(source,commit,runtime) {
   if(out.bookSourceUrl==='https://russtrat.ru/analytics'&&out.ruleBookInfo?.coverUrl?.includes('imgurl=result.split("\\n"）')) {
     out.ruleBookInfo.coverUrl='div.background-image-formatter@style<js>\nvar image = String(result).match(/url\\([\\\'"]?(.*?)[\\\'"]?\\)/);\nresult = image ? image[1] : "";\nresult;\n</js>';
   }
-  if(out.bookSourceUrl==='http://m.ndlib.cn'&&out.ruleSearch?.bookList)out.ruleSearch.bookList=out.ruleSearch.bookList.replace(/source\.getSource\u200b\(\)\.bookSourceComment/g,'source.bookSourceComment');
+  if(out.bookSourceUrl==='http://m.ndlib.cn')for(const [key,rules]of Object.entries(out))if(key.startsWith('rule')&&rules&&typeof rules==='object')for(const [field,value]of Object.entries(rules))if(typeof value==='string')rules[field]=value.replace(/source\.getSource\u200b\(\)\.bookSourceComment/g,'source.bookSourceComment');
   if(out.bookSourceUrl==='https://carnegieendowment.org'&&out.ruleContent?.content?.includes('function extractReadableContent(inputDoc)')){
     const tree=parse(out.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1]);
     // Only the audited full generic pipeline is replaced, not user edits.
@@ -630,7 +750,7 @@ function simplifySource(source,commit,runtime) {
     const text=typeof value==='object'?JSON.stringify(value):String(value);
     for(const n of parse(site).body.filter(n=>n.type==='FunctionDeclaration'))if(new RegExp('\\b'+n.id.name+'\\b').test(text))cross.add(n.id.name);
   }
-  function ruleObject(obj) {
+  function ruleObject(obj,section) {
     for(const [name,value]of Object.entries(obj))if(typeof value==='string') {
       let input=value;
       if(name==='chapterList'&&['https://academic.oup.com/','https://academic.oup.com/jcr'].includes(source.bookSourceUrl)){
@@ -638,16 +758,18 @@ function simplifySource(source,commit,runtime) {
         if(parts.length===3&&hash(js(parse(parts[0][1])))==='c722bad38a6fca50e06733b5e3d458739b96d0cfd28c6f2ff44f64d229e74b62'&&LEGACY_TRANSLATIONS[hash(js(parse(parts[2][1])))])input=value.replace(parts[0][0],'').trimStart();
       }
       const errorPolicy=source.bookSourceUrl==='https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber='&&name==='content'?'ieee':source.bookSourceUrl==='https://www.inc.com/'&&name==='content'?'inc':'strict';
-      const fn=code=>simplifyProgram(code,globals,{content:name==='content',nativeOutput:name==='content'?'content':name==='coverUrl'?'cover':'',protectedNames:cross,inactiveCommon,errorPolicy});
+      const fn=code=>{
+        const simplified=simplifyProgram(code,globals,{content:name==='content',nativeOutput:name==='content'?'content':name==='coverUrl'?'cover':'',protectedNames:cross,inactiveCommon,errorPolicy});
+        return simplifyBookListUrls(simplifyFinalUrl(simplified,source.bookSourceUrl,section+'.'+name),source.bookSourceUrl,section+'.'+name);
+      };
       try {
         if(name==='webJs')obj[name]=simplifyWeb(input,globals,commit);
-        else if(input.startsWith('@js:'))obj[name]='@js:'+fn(input.slice(4));
-        else if(/<js>/i.test(input))obj[name]=segments(input,fn);
+        else if(/<js>|@js:/i.test(input))obj[name]=segments(input,fn);
       } catch(error) {throw new Error(source.bookSourceName+' rule field '+name+': '+error.message,{cause:error});}
     }
   }
   for(const [field,value]of Object.entries(out)) {
-    if(field.startsWith('rule')&&value&&typeof value==='object')ruleObject(value);
+    if(field.startsWith('rule')&&value&&typeof value==='object')ruleObject(value,field);
     if(['searchUrl','exploreUrl','header'].includes(field)&&typeof value==='string') {
       if(value.startsWith('@js:'))out[field]='@js:'+simplifyProgram(value.slice(4),globals,{protectedNames:cross});
       else if(/<js>/i.test(value))out[field]=segments(value,code=>simplifyProgram(code,globals,{protectedNames:cross}));
@@ -660,14 +782,13 @@ function simplifySource(source,commit,runtime) {
   if(out.bookSourceName==='中国社会科学期刊')externalReads.add('burl');
   function collect(obj) {
     for(const [key,v]of Object.entries(obj)) {
-      if(key==='jsLib')continue;
+      if(key==='jsLib'||key==='bookSourceComment')continue;
       if(v && typeof v==='object'){collect(v);continue;}
       if(typeof v!=='string')continue;
       let codes=[];
-      if(v.startsWith('@js:'))codes=[v.slice(4)];
-      else if(key==='loginUrl'&&v&&!/^https?:\/\//i.test(v))codes=[v];
+      if(key==='loginUrl'&&v&&!/^https?:\/\//i.test(v))codes=[v];
       else if(key==='loginCheckJs'||key==='webJs')codes=[v];
-      else codes=[...v.matchAll(/<js>([\s\S]*?)<\/js>/gi)].map(m=>m[1]);
+      else codes=fieldPrograms(v,key);
       for(const code of codes)for(const name of reads(parse(code)))externalReads.add(name);
     }
   }
@@ -719,4 +840,4 @@ function main() {
   console.log(JSON.stringify(report,null,2));
 }
 if(require.main===module)main();
-module.exports={data,parse,js,walk,transform,reads,simplifyProgram,simplifySource,simplifyUi,simplifyLogin,simplifyCheck,simplifyWeb,browserLoader,browserScript,browserReadableHelper,uiAction,runtimeData,build,main};
+module.exports={data,parse,js,walk,transform,reads,simplifyProgram,simplifyFinalUrl,simplifyBookListUrls,FINAL_URL_RULES,BOOK_LIST_URL_RULES,simplifySource,simplifyUi,simplifyLogin,simplifyCheck,simplifyWeb,browserLoader,browserScript,browserReadableHelper,rulePrograms,fieldPrograms,uiAction,runtimeData,build,main};

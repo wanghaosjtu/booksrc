@@ -1,6 +1,6 @@
 # 书源 JS 精简与 common v3
 
-2026-11-07 创建，2026-11-08 续验；基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。最新补修、HTML 使用统计和实机状态见文末 2026-11-08 节。
+2026-11-07 创建，2026-11-08 续验；基线 `b9c1341`，分支 `feature/shared-common-all-sources`。108 个 canonical 源已生成 v3；本地测试通过，完整实机验收尚未完成。没有改 App/calibre，没有覆盖另一台手机的原源/原书缓存。当前结论见文末「最终 URL 与混合规则全量审计」，此前各阶段的候选/计数不是当前验收。
 
 首版实现已 check in 为 `b75c199`（`Simplify all source JS with shared common v3`）；随后补充了 IEEE 异常边界审计，当前源使用下面的新公共 SHA。工作分支未推送。
 
@@ -134,3 +134,28 @@ email-followup 仍按已有 401 预检失败停止，未重复轮询 Outlook、�
 最新验证：**105 tests，0 fail/skip**；实际 Rhino/Jsoup/Kotlin/Formatter/NetworkUtils **1530 checks、969 段脚本编译**，新增六条真实标题规则的执行而非仅编译，验证无全局 TT 时调用公共入口、中文/空值/fallback 以及结果。108 源 validator 和 4 项同步回归通过；canonical 与 108 phone candidates 的旧 API 全局可用性检查均为 0，候选 3299 项保全与重建幂等通过。没有将模拟翻译返回值当作外部翻译服务/真实站点成功。
 
 最新完整备份/108 候选及 IEEE/Nature/求是 priority 文件在 `source-js-simplification-20261108-local-v3-availability2/`；公共库仍固定 `47c94d9…`，未重新发布。`availability1` 是中间候选，存在三个图片 helper 的旧检查，不可部署；readable1、run1/run2 也已过时。此次只读取手机，未新增源/书、未覆盖现有源；原 109 源完整备份/revision 核对通过。Native 最后实际无库/本机 HTTP 对照仍是 60 秒原生期限到期，且 HTTP 可用不能替代 Native 恢复证据。需要本人恢复 App 后才能验收三站点与全量部署。
+
+## 2026-11-08：最终 URL 与混合规则全量审计（当前版）
+
+相对 `898c5bb`，36 个源的 74 个规则字段发生变化；全部 108 个身份、启用/类型、登录与非 JS 字段保全。总对象量为 **497,356 bytes**，相对原始 5,020,914 bytes 减少 **90.09%**。两行加载器、38 UI、34 标准 login、28 check 保持既有 common 接口；公共库仍固定 `47c94d927ecbefbea6c3f828ecdb522918bd2b5d`，没有新发布或推工作分支。
+
+- 按原生 `JS_PATTERN` 覆盖 CSS/XPath 后的 @js，发现并补齐以前漏掉的混合规则。多分类 exploreUrl 独立分段，备注/DES 不当作规则解析。移动阅读另外两处零宽字符 getter 定向修正，备注字节不变；其他混合字段主要是格式化，不改选择器或请求选项。
+- 定向简化 9 源的 22 个最终书籍/封面/章节/分页程序，完整 AST 指纹不匹配的用户代码保留。原生 BookChapter 是在请求前解析相对路径，并原样保留 URL 选项，不是章节字段获取时立即转换。
+- 再补 4 个书单程序：State.gov 国家去重键仍解析绝对地址，最终 href 保留原值；求是/CACM/Taylor 年份页是真实 ajax 请求，改用一次 common.resolveRequest，不能直接删除请求地址解析。State.gov 的 Jsoup 标签文字显式 String(...) 后再用 JS 正则和 length，避免 Java String.replace 重载歧义。
+- State.gov 跨页封面的相对地址明确使用 SPOKES 基准，绝对/data URI 保持原值，同页封面交给原生。保留 Annual/Carnegie 的 HTTP 镜像、Typesense/API 响应的真实跨域前缀、CNKI POST/CDN、Russtrat 裸 page= 构建及 RISS 去重/过滤。全字段通用 http 开头判断仅剩两处 Carnegie 跨域章节、CICIR 的 ID→API 构建和 Russtrat 裸分页构建；没有把真实请求当成重复最终 URL 删除。
+
+正式源仍只有 **IEEE 1/108** 显式 usehtml；新鲜 localhost 备份为 **2/109**，另一项是旧独立 HTML/SVG 验证源。Science 的手机规则规范化后与 canonical 正文一致，未开启包装。实际 TH 保留中间 h1–h6，原生 Formatter 删除裸标题，显式 ltUseHtmlBlocks 保留六级保护块，已用真实引擎验证。没有给 Science/Nature/求是/ScienceDirect 批量开启 HTML；「适配特殊样式」及重新下载旧正文仍是启用后的必要步骤。
+
+本次既有基线回归：**112 tests 全部通过，0 fail/skip**；真实 Rhino/Jsoup/Kotlin RuleAnalyzer/Formatter/NetworkUtils/BookChapter URL 方法 **1,896 checks、1,027 段 JS/UI action 编译**（以前 969 段遗漏了部分混合/分类规则，不能视为同等覆盖）。54 正式翻译源的结构检查、108 全量 validator 和 4 项同步回归通过。最新 canonical/手机候选 **7,009 项保全检查**通过，重建均幂等，旧 TT/TH 可用性门控为零。工作期间另外出现未提交的 CNKI 元数据脚本/新测试，新增测试的章节标题断言未通过，不在本提交范围，未将它算作通过或修改它来过测。
+
+当前私有候选为 `booksource/.usehtml-validation-phone/source-js-simplification-20261108-final-url3/`，含原机 109 源完整备份、108 候选、IEEE/Nature/求是 priority 和审计。final-url1/2、availability2 及更早候选都已过时，不能直接部署；恢复后若用户改了源，应重新备份/生成，不能对旧目录重复 --write。
+
+实机对照只用 HTTP/WS，不用手机 MCP/ADB：
+
+- localhost 无库、只访问手机自身 HTTP 的 Native WebView 在 **60,344 ms** 返回原生 `TimeoutCancellationException: Timed out waiting for 60000 ms`，客户端未超时，无 browser metrics，正文未完成。
+- 备用 `10.92.24.102` 同一无库 Native 对照 **2,044 ms** 通过；真实固定 SHA 的浏览器 CORS 加载 + webClean **1,296 ms** 通过，version 3、无 Java bridge、标题/两段原文/去噪/无重复翻译均通过。它证明普通 URL webJs 的公共库路径可用，不替代原机或三站点验收。
+- 备用机线程 7830 仍在 CacheManager 持锁路径等待 ajaxAll，本次看到 24 个缓存入口阻塞。因此没有向该设备追加 importScript/cache 探测，没有跨设备部署。两机独立短源分别 cleanup，并全量回读验证原机 109、备用机 114 原源未变；本轮未建书、未改原缓存。
+
+本地实现和检查已完成；剩余是原机 Native/三站点及 108 源实际部署验收。需要本人将 localhost 阅读 App 强行停止后重开、保持前台亮屏并重新启用 Web 服务，无需清理数据。不能用备用机 Native 通过来声称原机已恢复，或用结构测试声称所有网站流程已通过。
+
+按 email-followup 使用现有通道做一次只读预检，仍为 Outlook HTTP 401。能力门槛未通过，未调用原生等待、未建邮件 STATE/worker、未发请示或结果邮件，未改认证/全局配置。恢复 App 的本人交接只能在 console 继续。

@@ -1,0 +1,112 @@
+[
+  {
+    "id": "https://www.state.gov",
+    "field": "ruleBookInfo.coverUrl",
+    "value": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar SPOKES = \"https://www.state.gov/bureaus-offices/under-secretary-for-public-diplomacy-and-public-affairs/bureau-of-global-public-affairs/office-of-the-spokesman/\";\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar img = d.select(\".bureau-header__image img,.country-header__bg img,.wp-block-cover__image-background\").first();\nif (!img && (String(baseUrl || \"\").indexOf(\"/press-releases/\") >= 0 || String(baseUrl || \"\").indexOf(\"/department-press-briefings/\") >= 0)) {\n  var sd = org.jsoup.Jsoup.parse(String(java.ajax(SPOKES)));\n  img = sd.select(\".wp-block-cover__image-background\").first();\n}\nvar u = img ? String(img.attr(\"src\") || img.attr(\"data-src\") || img.attr(\"data-lazy-src\")) : \"\";\nif (u && u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else if (u.charAt(0) === \"/\") u = \"https://www.state.gov\" + u;\n}\nif (!u) {\n  {\n    u = String(book.coverUrl || \"\");\n  }\n}\nu || DEFAULT;"
+  },
+  {
+    "id": "https://www.state.gov",
+    "field": "ruleExplore.coverUrl",
+    "value": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar u = result && result[2] ? String(result[2]) : \"\";\nif (u && u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else if (u.charAt(0) === \"/\") u = \"https://www.state.gov\" + u;\n}\nresult = u || DEFAULT;"
+  },
+  {
+    "id": "https://www.state.gov",
+    "field": "ruleSearch.coverUrl",
+    "value": "@js:var DEFAULT = \"https://www.state.gov/wp-content/uploads/2025/01/Seal_only-1.png\";\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar img = d.select(\".bureau-header__image img,.country-header__bg img,.wp-block-cover__image-background\").first();\nvar u = img ? String(img.attr(\"src\") || img.attr(\"data-src\") || img.attr(\"data-lazy-src\")) : \"\";\nif (u && u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else if (u.charAt(0) === \"/\") u = \"https://www.state.gov\" + u;\n}\nu || DEFAULT;"
+  },
+  {
+    "id": "https://www.state.gov",
+    "field": "ruleToc.chapterUrl",
+    "value": "a@href\n<js>\nvar url = String(result || '');\nvar nl = url.indexOf('\\n');\nif (nl >= 0) url = url.substring(0, nl);\nurl = url.trim();\nif (url && url.indexOf('http') !== 0) url = 'https://www.state.gov' + url;\nurl;\n</js>"
+  },
+  {
+    "id": "https://www.state.gov",
+    "field": "ruleToc.nextTocUrl",
+    "value": ".pagination a.next@href\n@js:\nvar raw=result;if(Array.isArray(raw))raw=raw[0]||\"\";var u=String(raw||\"\").trim();\nvar current=String(baseUrl||\"\");var m=current.match(/\\/page\\/(\\d+)(?:\\/|$|\\?)/i);var page=m?parseInt(m[1],10):1;\nif(page>=10){result=\"\";}else{\n  if(u.charAt(0)===\"[\"&&u.charAt(u.length-1)===\"]\")u=u.substring(1,u.length-1).trim();\n  if(u&&u.indexOf(\"http\")!==0){if(u.indexOf(\"//\")===0)u=\"https:\"+u;else if(u.charAt(0)===\"/\")u=\"https://www.state.gov\"+u;}\n  result=u;\n}"
+  },
+  {
+    "id": "http://www.ccg.org.cn",
+    "field": "ruleSearch.bookUrl",
+    "value": "a@href\n@js:\nif (result && !result.startsWith('http')) result = 'http://www.ccg.org.cn' + result;\nresult"
+  },
+  {
+    "id": "http://www.ccg.org.cn",
+    "field": "ruleToc.chapterUrl",
+    "value": "@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'http://www.ccg.org.cn/' + u.substring(2); else if (u.charAt(0) === '/') u = 'http://www.ccg.org.cn' + u; else u = 'http://www.ccg.org.cn/' + u;\n}\nresult = u;\nresult;\n</js>"
+  },
+  {
+    "id": "http://www.ccg.org.cn",
+    "field": "ruleToc.nextTocUrl",
+    "value": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\"));\nvar as = d.select(\".page .page_list a[href]\");\nvar cur = 0, m = String(baseUrl || \"\").match(/\\/page\\/(\\d+)/);\nif (m) cur = parseInt(m[1], 10);\nvar u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var h = \"\" + as.get(i).attr(\"href\"), mm = h.match(/\\/page\\/(\\d+)/);\n  if (mm && parseInt(mm[1], 10) > cur) {\n    u = h;\n    break;\n  }\n}\nif (u && u.indexOf(\"http\") !== 0) u = \"http://www.ccg.org.cn\" + u;\nresult = u;\n</js>"
+  },
+  {
+    "id": "https://cssn.cn/",
+    "field": "ruleExplore.bookUrl",
+    "value": "a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://www.cssn.cn/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://www.cssn.cn' + u; else u = 'https://www.cssn.cn/' + u;\n}\nresult = u;\nresult;\n</js>"
+  },
+  {
+    "id": "https://cssn.cn/",
+    "field": "ruleToc.chapterUrl",
+    "value": "a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf(\"http\") !== 0) {\n  if (u.indexOf(\"//\") === 0) u = \"https:\" + u; else {\n    var b = String(baseUrl || \"\");\n    if (b.charAt(b.length - 1) !== \"/\") b = b.substring(0, b.lastIndexOf(\"/\") + 1);\n    while (u.indexOf(\"../\") === 0) {\n      b = b.substring(0, b.lastIndexOf(\"/\", b.length - 2) + 1);\n      u = u.substring(3);\n    }\n    if (u.indexOf(\"./\") === 0) u = u.substring(2);\n    u = b + u;\n  }\n}\nresult = u;\n</js>"
+  },
+  {
+    "id": "https://cssn.cn/",
+    "field": "ruleToc.nextTocUrl",
+    "value": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\"a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = \"\" + a.text();\n  if ((/下一页|下页|next/i).test(t)) {\n    u = \"\" + a.attr(\"href\");\n    break;\n  }\n}\nif (u) {\n  if (u.indexOf(\"http\") !== 0) {\n    var b = String(baseUrl || \"\");\n    if (b.charAt(b.length - 1) !== \"/\") b = b.substring(0, b.lastIndexOf(\"/\") + 1);\n    if (u.indexOf(\"./\") === 0) u = u.substring(2);\n    u = b + u;\n  }\n}\nresult = u;\n</js>"
+  },
+  {
+    "id": "https://mid.ru",
+    "field": "ruleToc.chapterUrl",
+    "value": "a.announce__link_fix_ru@href\n<js>\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://mid.ru' + url;\nurl;\n</js>"
+  },
+  {
+    "id": "https://mid.ru",
+    "field": "ruleToc.nextTocUrl",
+    "value": "<js>\nvar d = org.jsoup.Jsoup.parse(String(result || \"\")), as = d.select(\".pager a[href]\"), u = \"\";\nfor (var i = 0; i < as.size(); i++) {\n  var a = as.get(i), t = String(a.text()).toLowerCase();\n  if (t.indexOf(\"вперед\") >= 0 || t.indexOf(\"next\") >= 0) {\n    u = String(a.attr(\"href\"));\n    break;\n  }\n}\nif (u && u.indexOf(\"http\") !== 0) u = \"https://mid.ru\" + u;\nresult = u;\n</js>"
+  },
+  {
+    "id": "https://russiancouncil.ru/",
+    "field": "ruleExplore.bookUrl",
+    "value": "a.img-link__link@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://russiancouncil.ru/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://russiancouncil.ru' + u; else u = 'https://russiancouncil.ru/' + u;\n}\nresult = u;\nresult;\n</js>"
+  },
+  {
+    "id": "https://russiancouncil.ru/",
+    "field": "ruleToc.chapterUrl",
+    "value": "a.img-link__link@href\n<js>\nif (!result) result = baseUrl;\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://russiancouncil.ru/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://russiancouncil.ru' + u; else u = 'https://russiancouncil.ru/' + u;\n}\nresult = u;\nresult;\n</js>"
+  },
+  {
+    "id": "https://russiancouncil.ru/",
+    "field": "ruleToc.nextTocUrl",
+    "value": "a.btn.mb_top.js-more@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://russiancouncil.ru/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://russiancouncil.ru' + u; else u = 'https://russiancouncil.ru/' + u;\n}\nresult = u;\nresult;\n</js>"
+  },
+  {
+    "id": "https://russtrat.ru",
+    "field": "ruleToc.chapterUrl",
+    "value": "@css:a@href\n@js:\nvar url = String(result || '');\nif (Array.isArray(url)) url = url[0] || '';\nif (url && !url.startsWith('http')) url = 'https://russtrat.ru' + url;\nurl"
+  },
+  {
+    "id": "https://russtrat.ru",
+    "field": "ruleToc.nextTocUrl",
+    "value": "@css:.pager-item a@href\n@js:\nvar urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n  var u = String(urls[i] || '');\n  if (u.indexOf('page=') >= 0) {\n    if (u.indexOf('http') < 0) {\n      if (u.startsWith('/')) {\n        u = 'https://russtrat.ru' + u;\n      } else {\n        u = 'https://russtrat.ru/analytics?' + u;\n      }\n    }\n    if (!seen[u]) { seen[u] = 1; list.push(u); }\n  }\n}\nlist"
+  },
+  {
+    "id": "https://riss.ru",
+    "field": "ruleToc.chapterUrl",
+    "value": "@css:a.big-new_title@href\n@js:\nvar url = String(result || '');\nif (url && !url.startsWith('http')) url = 'https://riss.ru' + url;\nurl"
+  },
+  {
+    "id": "https://riss.ru",
+    "field": "ruleToc.nextTocUrl",
+    "value": "@css:.pagination-list a@href\n@js:\nvar urls = result;\nif (typeof urls === 'string') urls = [urls];\nif (!urls) urls = [];\nvar list = [];\nvar seen = {};\nfor (var i = 0; i < urls.length; i++) {\n    var u = String(urls[i] || '');\n    if (u.indexOf('PAGEN_1') >= 0) {\n        if (u.indexOf('http') < 0) u = 'https://riss.ru' + u;\n        if (!seen[u]) { seen[u] = 1; list.push(u); }\n    }\n}\nlist"
+  },
+  {
+    "id": "https://navi.cnki.net/knavi/journals/KJGC/detail?uniplatform=NZKPT",
+    "field": "ruleToc.chapterUrl",
+    "value": "span.name a@href\n<js>\nvar raw = result;\nif (Array.isArray(raw)) raw = raw[0] || \"\";\nvar u = String(raw || \"\").trim();\nif (u.charAt(0) === \"[\" && u.charAt(u.length - 1) === \"]\") u = u.substring(1, u.length - 1).trim();\nif (u.indexOf('http') !== 0) {\n  if (u.indexOf('//') === 0) u = 'https:' + u; else if (u.indexOf('./') === 0) u = 'https://navi.cnki.net/' + u.substring(2); else if (u.charAt(0) === '/') u = 'https://navi.cnki.net' + u; else u = 'https://navi.cnki.net/' + u;\n}\nresult = u;\nresult;\n</js>"
+  },
+  {
+    "id": "https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=",
+    "field": "ruleBookInfo.coverUrl",
+    "value": "//详情页 封面 备份\n<js>\nif (book.coverUrl == \"https://ieeexplore.ieee.org/\") {\n  refer = java.get('refer');\n  let options = {\n    \"headers\": {\n      \"Referrer\": refer\n    }\n  };\n  refer = refer + \",{'webView': true}\";\n  result = java.ajax(refer);\n  Jsoup = org.jsoup.Jsoup;\n  var doc = Jsoup.parse(result);\n  css = \"div.coverImage-container img\";\n  var elements = doc.select(css);\n  result = 'https://ieeexplore.ieee.org' + elements.attr('src');\n  src = elements[0].attr('src');\n  result = src;\n  java.log('cover:' + result);\n  result;\n}\n</js>"
+  }
+]

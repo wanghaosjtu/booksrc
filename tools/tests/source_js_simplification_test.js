@@ -12,6 +12,13 @@ const local=JSON.parse(fs.readFileSync(path.join(ROOT,'booksource/legado-book-so
 const runtime=m.runtimeData();
 const convert=s=>m.simplifySource(s,COMMIT,runtime);
 const sources=local.map(convert);
+const urlFixtures=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/final-url-rules.json'),'utf8'));
+const bookListUrlFixtures=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/book-list-url-rules.json'),'utf8'));
+function urlProgram(id,field){
+  const f=urlFixtures.find(f=>f.id===id&&f.field===field);
+  assert(f,'audited URL fixture '+id+' '+field);
+  return m.simplifyFinalUrl(m.rulePrograms(f.value)[0],id,field);
+}
 const scope=vm.createContext({});
 const api=vm.runInContext(fs.readFileSync(path.join(ROOT,'booksource/runtime/legado-shared-runtime.js'),'utf8'),scope);
 
@@ -26,6 +33,122 @@ test('rule interpolation round-trips exactly, including sentinel-like user text'
     const out=m.simplifyProgram(code,{});
     assert.deepEqual([...out.matchAll(/\{\{[\s\S]*?\}\}/g)].map(m=>m[0]),[...code.matchAll(/\{\{[\s\S]*?\}\}/g)].map(m=>m[0]));
     assert.equal(m.simplifyProgram(out,{}),out);
+  }
+});
+test('native JS_PATTERN extraction covers CSS/XPath followed by @js without parsing remarks',()=>{
+  const pattern=fs.readFileSync(path.join(ROOT,'legado/app/src/main/java/io/legado/app/constant/AppPattern.kt'),'utf8');
+  assert(pattern.includes('Pattern.compile("<js>([\\\\w\\\\W]*?)</js>|@js:([\\\\w\\\\W]*)", Pattern.CASE_INSENSITIVE)'));
+  const value='@css:a@href\n@js:\nif(result&&typeof TT==="function")result=TT(result,java,cache);result;';
+  assert.equal(m.rulePrograms(value).length,1);
+  const source=convert({bookSourceName:'Hybrid rule',bookSourceUrl:'https://hybrid.test',jsLib:loader(COMMIT),bookSourceComment:'notes\n@js:not valid JS',ruleToc:{chapterUrl:value}});
+  assert(source.ruleToc.chapterUrl.startsWith('@css:a@href\n@js:'));
+  assert(!source.ruleToc.chapterUrl.includes('typeof TT'));
+  assert.equal(source.bookSourceComment,'notes\n@js:not valid JS');
+  assert.equal(vm.runInNewContext(m.rulePrograms(source.ruleToc.chapterUrl)[0],{result:'title',java:{},cache:{},common:()=>({TT:v=>'translated:'+v})}),'translated:title');
+  assert.deepEqual(convert(source),source);
+  assert.deepEqual(m.fieldPrograms('One::@js:java.put("one",1);\nTwo::@js:java.put("two",2);','exploreUrl'),['java.put("one",1);','java.put("two",2);']);
+  const mobile=local.find(s=>s.bookSourceUrl==='http://m.ndlib.cn'),fixed=convert(mobile);
+  assert(!fixed.ruleSearch.bookUrl.includes('getSource\u200b')&&!fixed.ruleToc.chapterUrl.includes('getSource\u200b'));
+  assert.equal(fixed.bookSourceComment,mobile.bookSourceComment);
+});
+test('all 22 audited final URL programs migrate by full fingerprints and leave user edits intact',()=>{
+  assert.equal(urlFixtures.length,22);
+  assert.equal(Object.keys(m.FINAL_URL_RULES).length,9);
+  for(const f of urlFixtures){
+    const original=m.rulePrograms(f.value)[0];
+    assert.equal(hash(m.js(m.parse(original))),m.FINAL_URL_RULES[f.id][f.field][0],f.id+' '+f.field+' baseline');
+    const output=m.simplifyFinalUrl(original,f.id,f.field);
+    assert.notEqual(hash(m.js(m.parse(output))),hash(m.js(m.parse(original))),f.id+' '+f.field+' was simplified');
+    assert.equal(m.simplifyFinalUrl(output,f.id,f.field),output);
+    const edited=original+'\njava.log("user edit");';
+    assert.equal(m.simplifyFinalUrl(edited,f.id,f.field),edited,'unknown additions survive');
+    assert.equal(m.simplifyFinalUrl(original,'https://unrelated.test',f.field),original);
+    assert.equal(m.simplifyFinalUrl(original,f.id,'ruleContent.content'),original,'request/body context is not final URL output');
+  }
+});
+test('final book and chapter URLs keep relative paths, protocol-relative hosts, signed queries and URL options',()=>{
+  const fields=[
+    ['https://www.state.gov','ruleToc.chapterUrl'],['http://www.ccg.org.cn','ruleSearch.bookUrl'],
+    ['http://www.ccg.org.cn','ruleToc.chapterUrl'],['https://cssn.cn/','ruleExplore.bookUrl'],
+    ['https://cssn.cn/','ruleToc.chapterUrl'],['https://mid.ru','ruleToc.chapterUrl'],
+    ['https://russiancouncil.ru/','ruleExplore.bookUrl'],['https://russiancouncil.ru/','ruleToc.chapterUrl'],
+    ['https://russiancouncil.ru/','ruleToc.nextTocUrl'],['https://russtrat.ru','ruleToc.chapterUrl'],
+    ['https://riss.ru','ruleToc.chapterUrl'],['https://navi.cnki.net/knavi/journals/KJGC/detail?uniplatform=NZKPT','ruleToc.chapterUrl']
+  ];
+  for(const[id,field]of fields)for(const raw of ['//cdn.example.test/a.svg?sig=a%2Fb+1','/root/path','../chapter/next.html','./next.html','next.html','https://other.test/x,{"webView":true,"headers":{"X-Sig":"a%2Fb+1"}}']){
+    assert.equal(vm.runInNewContext(urlProgram(id,field),{result:raw,baseUrl:id}),raw,id+' '+field);
+  }
+  assert.equal(vm.runInNewContext(urlProgram('https://russiancouncil.ru/','ruleToc.chapterUrl'),{result:'',baseUrl:'https://russiancouncil.ru/current/'}),'https://russiancouncil.ru/current/','RIAC empty chapter fallback survives');
+  assert.equal(vm.runInNewContext(urlProgram('https://www.state.gov','ruleToc.chapterUrl'),{result:' ../first.html\n/second.html ',baseUrl:''}),'../first.html','State first-line selection survives');
+  for(const id of ['http://www.ccg.org.cn','https://cssn.cn/','https://russiancouncil.ru/']){
+    const field=id==='https://cssn.cn/'?'ruleExplore.bookUrl':'ruleToc.chapterUrl';
+    assert.equal(vm.runInNewContext(urlProgram(id,field),{result:[' [../next.html] '],baseUrl:id}),'../next.html','known list wrapper is retained');
+  }
+});
+test('pagination caps, real query construction and filtering remain after removing repeated domains',()=>{
+  const state=urlProgram('https://www.state.gov','ruleToc.nextTocUrl');
+  assert.equal(vm.runInNewContext(state,{result:'[//cdn.example.test/page/9/]',baseUrl:'https://www.state.gov/bureaus/page/8/'}),'//cdn.example.test/page/9/');
+  assert.equal(vm.runInNewContext(state,{result:'/bureaus/page/11/',baseUrl:'https://www.state.gov/bureaus/page/10/'}),'');
+  const run=(id,input)=>JSON.parse(JSON.stringify(vm.runInNewContext(urlProgram(id,'ruleToc.nextTocUrl'),{result:input,baseUrl:id+'/analytics'})));
+  assert.deepEqual(run('https://russtrat.ru',['page=2','/analytics?page=3','//cdn.example.test/a?page=4','page=2','no-pagination']),['/analytics?page=2','/analytics?page=3','//cdn.example.test/a?page=4']);
+  assert.deepEqual(run('https://riss.ru',['/news/?PAGEN_1=2','//other.test/?PAGEN_1=3','/news/?PAGEN_1=2','no-pagination']),['/news/?PAGEN_1=2','//other.test/?PAGEN_1=3']);
+});
+test('cross-page covers, HTTP mirrors, API/CDN requests and edited pagination stay scoped',()=>{
+  const cover=urlProgram('https://www.state.gov','ruleBookInfo.coverUrl');
+  assert(cover.includes('imageBase = SPOKES;')&&cover.includes('common(java).resolveRequest(u, imageBase)'));
+  assert(cover.includes('java.ajax(SPOKES)')&&cover.includes('book.coverUrl'),'request and cover fallbacks survive');
+  const previous=m.js(m.transform(m.parse(cover),n=>{
+    if(n.type==='IfStatement'&&m.js(n.test).startsWith('u && imageBase &&'))n.test=m.parse('if(u&&imageBase){}').body[0].test;
+    return n;
+  }));
+  assert.equal(hash(previous),'6475d798a2f546a0a39a61380e00ce2a8bf8ab0f7afa4af9dd3daaab6e544dbe');
+  assert.equal(m.simplifyFinalUrl(previous,'https://www.state.gov','ruleBookInfo.coverUrl'),cover,'our earlier cross-page program upgrades without losing self-contained data URIs');
+  assert.equal(m.simplifyFinalUrl(previous+'\njava.log("user edit");','https://www.state.gov','ruleBookInfo.coverUrl'),previous+'\njava.log("user edit");');
+  const ieee=urlProgram('https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=','ruleBookInfo.coverUrl');
+  assert(ieee.includes('java.ajax(refer)')&&ieee.includes("src = elements[0].attr('src')"));
+  assert(!ieee.includes("'https://ieeexplore.ieee.org' + elements.attr('src')"),'overwritten pure attr lookup is gone');
+  for(const[id,fields]of [
+    ['https://carnegie.ru/',['ruleToc.chapterUrl','ruleToc.nextTocUrl']],
+    ['https://www.annualreviews.org',['ruleExplore.bookUrl','ruleToc.chapterUrl','ruleToc.nextTocUrl']],
+    ['https://carnegieendowment.org',['ruleToc.chapterUrl']],
+    ['https://carnegieendowment.org.back',['ruleToc.chapterUrl']],
+    ['https://navi.cnki.net/knavi/journals/KJGC/detail?uniplatform=NZKPT',['ruleExplore.bookUrl','ruleExplore.coverUrl']],
+    ['https://www.productplan.com',['ruleToc.nextTocUrl']]
+  ]){
+    const source=local.find(s=>s.bookSourceUrl===id);assert(source,'preserved source '+id);
+    for(const field of fields){
+      const[section,name]=field.split('.'),before=source[section][name],after=convert(source)[section][name];
+      assert.deepEqual(m.rulePrograms(after).map(c=>m.js(m.parse(c))),m.rulePrograms(before).map(c=>m.js(m.parse(c))),id+' '+field+' JS semantics');
+      const selectors=value=>value.replace(/<js>[\s\S]*?<\/js>|@js:[\s\S]*/gi,'<PROGRAM>');
+      assert.equal(selectors(after),selectors(before),id+' '+field+' selector');
+    }
+  }
+});
+test('only IEEE explicitly enables usehtml; Science and the other formal sources keep their current mode',()=>{
+  assert.deepEqual(sources.filter(s=>/ltUseHtmlBlocks|<usehtml\b/i.test(s.ruleContent?.content||'')).map(s=>s.bookSourceName),['IEEE']);
+  const science=sources.find(s=>s.bookSourceName==='Science');
+  assert(science.ruleContent.content.includes('common(java).TH(')&&!science.ruleContent.content.includes('ltUseHtmlBlocks'));
+  assert(!science.loginUi.includes('"render"'),'no implicit HTML mode is added');
+});
+test('four audited book-list URL programs preserve deduplication and real page requests',()=>{
+  assert.equal(bookListUrlFixtures.length,4);
+  for(const f of bookListUrlFixtures){
+    const original=m.rulePrograms(f.value)[0],output=m.simplifyBookListUrls(original,f.id,f.field);
+    assert.equal(hash(m.js(m.parse(original))),m.BOOK_LIST_URL_RULES[f.id][0]);
+    assert.notEqual(hash(m.js(m.parse(output))),hash(m.js(m.parse(original))));
+    assert.equal(m.simplifyBookListUrls(output,f.id,f.field),output);
+    const edited=original+'\njava.log("user edit");';
+    assert.equal(m.simplifyBookListUrls(edited,f.id,f.field),edited);
+    assert.equal(m.simplifyBookListUrls(original,f.id,'ruleContent.content'),original);
+    if(f.id==='https://www.state.gov'){
+      assert(output.includes('common(java).resolveRequest(href, baseUrl).toLowerCase()'),'country deduplication still compares resolved URLs');
+      assert(output.includes('books.push([href, name])')&&!output.includes("href = 'https://www.state.gov' + href"),'final href stays raw');
+      assert(output.includes('String(btn.text()).trim()')&&output.includes('String(a.text()).trim()'),'Jsoup labels support actual JS regex and string length');
+    }else{
+      assert(output.includes('yearurl = common(java).resolveRequest(yearurl, baseUrl'),'actual ajax gets an absolute request URL');
+      assert(output.includes('java.ajax(yearurl)')&&!output.includes('basehost')&&!output.includes('startsWith("http")'));
+      if(f.id==='http://www.qstheory.cn/')assert(output.includes('baseUrl || "http://www.qstheory.cn/"'),'only the existing missing-base fallback is retained');
+    }
   }
 });
 test('dead literal data is removed, but getters, requests and object initializer effects remain',()=>{
@@ -133,13 +256,12 @@ test('all 108 converted sources have no remaining global availability checks for
     for(const [key,value]of Object.entries(obj)){
       const field=path?path+'.'+key:key;
       if(value&&typeof value==='object'){scan(value,source,field);continue;}
-      if(typeof value!=='string')continue;
+      if(typeof value!=='string'||key==='bookSourceComment')continue;
       let programs=[];
       if(key==='jsLib')programs=[stripCommon(value)];
-      else if(value.startsWith('@js:'))programs=[value.slice(4)];
       else if(key==='loginUrl'&&value&&!/^https?:\/\//i.test(value))programs=[value];
       else if(key==='webJs'||key==='loginCheckJs')programs=[value];
-      else programs=[...value.matchAll(/<js>([\s\S]*?)<\/js>/gi)].map(m=>m[1]);
+      else programs=m.fieldPrograms(value,key);
       for(const code of programs)m.walk(m.parse(code),node=>{if(node.type==='UnaryExpression'&&node.operator==='typeof'&&node.argument.type==='Identifier'&&names.has(node.argument.name))found.push({source,field,helper:node.argument.name});});
     }
   }
@@ -308,11 +430,11 @@ test('all 108 identities and non-JS fields survive; local and phone objects are 
     assert.equal(sources[i].bookSourceUrl,local[i].bookSourceUrl);
     for(const[k,v]of Object.entries(local[i])){
       if(k.startsWith('rule')){
-        for(const[field,value]of Object.entries(v||{}))if(field!=='webJs'&&(typeof value!=='string'||!/<js>|^@js:/.test(value))){
+        for(const[field,value]of Object.entries(v||{}))if(field!=='webJs'&&(typeof value!=='string'||!m.rulePrograms(value).length)){
           if(i===25&&k==='ruleBookInfo'&&field==='coverUrl')continue;
           assert.deepEqual(sources[i][k][field],value,i+' '+k+'.'+field);
         }
-      }else if(!editable.has(k)||['searchUrl','exploreUrl','header'].includes(k)&&typeof v==='string'&&!/<js>|^@js:/.test(v))assert.deepEqual(sources[i][k],v,i+' '+k);
+      }else if(!editable.has(k)||['searchUrl','exploreUrl','header'].includes(k)&&typeof v==='string'&&!m.fieldPrograms(v,k).length)assert.deepEqual(sources[i][k],v,i+' '+k);
     }
     if(/^https?:\/\//.test(local[i].loginUrl||''))assert.equal(sources[i].loginUrl,local[i].loginUrl);
     assert(sources[i].jsLib.endsWith(loader(COMMIT)));
