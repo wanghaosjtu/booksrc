@@ -178,3 +178,9 @@ email-followup 仍按已有 401 预检失败停止，未重复轮询 Outlook、�
 - 37 个 `webJs` 中，34 个用两行 CORS loader 调 common；Carnegie 的 9 行纯 DOM 清理已按完整 AST 指纹改为 `webClean`，未改其选择器；剩余 3 个脚本分别有站点专用字符串修正、懒加载图片字段或 `getDecode()`，因此保留。
 - final URL 审计的 22 个最终链接程序与 4 个分页/书单程序继续由完整指纹测试覆盖；相对路径和 Legado URL 选项原样保留，真正的跨页资源、API 请求、HTTP 镜像和分页构造不删。干净 108 源的唯一 5 个 catch 位于 inc.com/IEEE 的网络请求边界，均调用 common `networkError`；普通脚本错误不会被回退吞掉。
 - 回归：tracked Node tests **116/116 通过、0 skip**（含 Chrome CORS/DOM 实测）；Rhino/Jsoup/原生 Kotlin RuleAnalyzer/Formatter/URL harness **1,897 checks、1,027 个脚本编译**；108 源 validator 与 4 项 runtime-sync tests 通过。当前未提交的 CNKI 元数据工作区改动仍原样保留、不混入本次提交；其新增脚本有 3 个空 catch，不属于干净 HEAD 的源清理结果。该私有 CNKI 测试在当前工作区单独运行通过。
+
+## 2026-11-08 后续：CNKI 草稿中的错误边界
+
+本节更新上一段对当前未提交 CNKI 草稿的 catch 数量：已在本地草稿中去掉可选 `chapter`/`book` 属性读取外层的两个空 catch；百分号解码回退现在只捕获 `URIError`，其他错误原样抛出。简化器用完整 AST 指纹只保留这一种输入回退，不保留其他空 catch。CNKI helper 与工作区书源正文仍相互一致，简化器重建后 AST 相同（仅格式变化）；它们仍是原有未提交草稿，没有纳入提交。
+
+用实际 Legado HtmlUnit Rhino 验证：`decodeURIComponent` 遇到坏百分号时返回原始 DOI，非 URI `TypeError` 仍抛出。当前再验：tracked Node tests **117/117 通过、0 skip**（含 Chrome）；原生 JS/Kotlin/Formatter/URL harness **1,897 checks、1,027 段编译**；CNKI 草稿测试、108 源 validator 和 4 项 runtime-sync tests 通过。

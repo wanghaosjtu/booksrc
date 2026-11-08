@@ -28,6 +28,9 @@ const LOGIN_SETTERS = {
 const LEGACY_NOOP_LOGINS = {
   '29853288df0b6231d456b4237ed085269bb1aa44c75d67616a7ec089eaacb6a0':'function login() { common(java).login(java, {}, {}); }'
 };
+// CNKI may receive malformed percent-encoded DOI text. Its fallback is narrow:
+// keep the raw input for URIError, but rethrow any unrelated failure.
+const URI_DECODE_FALLBACK='bf41ec03b332d43c0aab0dd0e0129066312da916a5a4a60a172e2422b2028232';
 const BODY_HELPERS = {
   cnkiRespBody:'8d2e6b142569666fb4e7209f3a44a8294fc894c492e91a84eff085bd2d6e8370',
   incBody:'8639be60ab659e39e7111964ff5184f2e09a67063ebfcb1be0ce89e5ae207c8a',
@@ -577,6 +580,7 @@ function simplifyProgram(code,globals,{content=false,nativeOutput='',protectedNa
   if(content)tree=simpleContent(tree,defaults,inlineGlobals)||simpleImages(tree)||tree;
   if(errorPolicy==='ieee')tree=ieeeServiceJson(tree);
   tree=transform(tree,n=>{
+    if(n.type==='TryStatement'&&hash(js(n))===URI_DECODE_FALLBACK)return n;
     if(n.type==='TryStatement'&&n.handler && !n.handler.body.body.length) {
       return n.finalizer?{...n,handler:null}:n.block;
     }

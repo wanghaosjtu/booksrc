@@ -396,6 +396,16 @@ test('empty and strict error catches expose the original error rather than fabri
     assert.throws(()=>vm.runInNewContext(out),/real bug/);
   }
 });
+test('only the exact malformed-URI fallback catch remains; unrelated errors still escape',()=>{
+  const code='function normalize(text){try{text=decodeURIComponent(text);}catch(e){if(!(e instanceof URIError))throw e;}return text;}result=normalize(input);';
+  const output=m.simplifyProgram(code,{}, {errorPolicy:'strict'});
+  assert(output.includes('instanceof URIError'));
+  const run=input=>vm.runInNewContext(output,{input});
+  assert.equal(run('10.1234/a%2Fb'),'10.1234/a/b');
+  assert.equal(run('10.1234/a%'),'10.1234/a%','malformed external DOI stays available as raw text');
+  const fail=vm.createContext({input:'10.1234/x',decodeURIComponent(){throw new TypeError('unrelated bug')}});
+  assert.throws(()=>vm.runInContext(output,fail),/unrelated bug/);
+});
 function ieeeNetworkFixture(){
   const source=sources.find(s=>s.bookSourceUrl==='https://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=');
   const tree=m.parse(source.ruleContent.content.match(/<js>([\s\S]*?)<\/js>/)[1]);
