@@ -5,7 +5,7 @@ function _ltString(v){return v==null?"":String(v);}
 function _ltCacheGet(c,k){return c?c.get(k):null;}
 function _ltCachePut(c,k,v,s){if(c)c.put(k,v,s);}
 function _ltLang(j){return _ltString(j.get("TARGET_LANG")).trim()||"zh-Hans";}
-function _ltJavaString(v){return v!=null&&typeof v.getClass==="function"&&String(v.getClass().getName())==="java.lang.String";}
+function _ltJavaString(v){try{if(v==null||typeof v.getClass!=="function")return false;var c=v.getClass();return c!=null&&String(c.getName())==="java.lang.String";}catch(e){return false;}}
 function _ltText(v){return typeof v==="string"||v instanceof String||_ltJavaString(v);}
 function _ltArray(v){return Object.prototype.toString.call(v)==="[object Array]";}
 function _ltBody(r){return r==null?"":_ltText(r)?String(r):_ltString(r.body());}
