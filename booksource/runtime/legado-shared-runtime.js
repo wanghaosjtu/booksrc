@@ -145,16 +145,25 @@ function ltExtract(html,j,selectors){
     return nodeInput?doc:_ltString(doc.body().html());
 }
 function _ltSrcset(value){
-    var s=_ltString(value),at=0,start,url,descriptor,match,score,best="",bestScore=-1;
+    var s=_ltString(value),at=0,start,url,descriptor,match,score,best="",bestScore=-1,trailing;
     while(at<s.length){
         while(at<s.length&&/[\s,]/.test(s.charAt(at)))at++;
+        if(at>=s.length)break;
         start=at;
-        var data=s.substring(at,at+5).toLowerCase()==="data:";
-        while(at<s.length&&!/\s/.test(s.charAt(at))&&(data||s.charAt(at)!==","))at++;
-        url=s.substring(start,at).replace(/,+$/,"");
-        start=at;
-        while(at<s.length&&s.charAt(at)!==",")at++;
-        descriptor=s.substring(start,at).trim();at++;
+        // A srcset URL can itself contain commas (for example, Cloudinary
+        // transformations). Read the whole non-whitespace URL token first;
+        // only trailing commas on that token delimit a descriptor-less item.
+        while(at<s.length&&!/\s/.test(s.charAt(at)))at++;
+        url=s.substring(start,at);
+        trailing=url.match(/,+$/);
+        if(trailing)url=url.substring(0,url.length-trailing[0].length);
+        descriptor="";
+        if(!trailing){
+            start=at;
+            while(at<s.length&&s.charAt(at)!==",")at++;
+            descriptor=s.substring(start,at).trim();
+            if(at<s.length)at++;
+        }
         match=descriptor.match(/^([0-9]+(?:\.[0-9]+)?)[wx]$/);
         score=match?parseFloat(match[1]):0;
         if(_ltUsable(url)&&score>=bestScore){best=url;bestScore=score;}
