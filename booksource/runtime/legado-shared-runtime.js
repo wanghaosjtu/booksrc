@@ -330,7 +330,7 @@ function ltUseHtmlBlocks(html,j,options) {
     doc.outputSettings().prettyPrint(false);
     doc.select("usehtml").unwrap();
     _ltPrepareImages(doc,options||{});
-    blocks = doc.select("h1,h2,h3,h4,h5,h6,blockquote");
+    blocks = doc.select("h1,h2,h3,h4,h5,h6,blockquote, table");
     // Do not accidentally replace user text which happens to resemble a marker.
     while (s.indexOf(prefix) >= 0) prefix += "X";
     for (i = 0; i < blocks.size(); i++) {
@@ -2345,7 +2345,7 @@ function _ltBrowserReadable(doc, strict) {
     return new Readability(doc).parse();
 }
 
-/* Direct eval returns this API; the v4 cacheFile loader validates TH/check before replacing it. */
+/* Direct eval returns this API to the v4 cacheFile loader. */
 ({version:LEGADO_SHARED_RUNTIME,TT:TT,TJ:TJ,TC:TC,TH:TH,
   ltPrepareImages:ltPrepareImages,ltExtract:ltExtract,ltUseHtmlBlocks:ltUseHtmlBlocks,
   setTargetLang:_ltSetTargetLang,setRenderMode:_ltSetRenderMode,login:_ltLogin,loginUi:_ltLoginUi,open:_ltOpen,
