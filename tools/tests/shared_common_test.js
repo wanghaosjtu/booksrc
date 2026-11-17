@@ -155,12 +155,20 @@ test('image, extraction and HTML APIs receive the current caller and explicit op
   assert.deepEqual(c.common(j).ltPrepareImages('html',j,options), ['html',j,options]);
   assert.deepEqual(c.common(j).ltExtract('html',j,['usehtml']), ['html',j,['usehtml']]);
 });
-test('srcset respects descriptors and data-URI commas', () => {
+test('srcset respects descriptors, data-URI commas, and commas inside image URLs', () => {
   const c = common(), data = 'data:image/png;base64,aGVsbG8=';
+  const inc828 = 'https://img-cdn.inc.com/image/upload/f_webp,c_fit,w_828,q_auto/vip/2026/11/caulipower-gail-becker-inc.jpg';
+  const inc1920 = 'https://img-cdn.inc.com/image/upload/f_webp,c_fit,w_1920,q_auto/vip/2026/11/caulipower-gail-becker-inc.jpg';
+  const legacyContext = vm.createContext({}), rssContext = vm.createContext({});
+  vm.runInContext(legacy, legacyContext);
+  vm.runInContext(rssRuntime, rssContext);
   assert.equal(c._ltSrcset('large.svg 2x, small.svg 1x'), 'large.svg');
   assert.equal(c._ltSrcset('small.svg 200w,large.svg 800w'), 'large.svg');
   assert.equal(c._ltSrcset(data + ' 1x'), data);
   assert.equal(c._ltSrcset(data + ' 1x, https://example.test/large.png 2x'), 'https://example.test/large.png');
+  assert.equal(c._ltSrcset(inc828 + ' 1x, ' + inc1920 + ' 2x'), inc1920);
+  assert.equal(legacyContext._ltSrcset(inc828 + ' 1x, ' + inc1920 + ' 2x'), inc1920);
+  assert.equal(rssContext._ltSrcset(inc828 + ' 1x, ' + inc1920 + ' 2x'), inc1920);
 });
 test('protocol-relative image URLs inherit the source scheme without altering signed options',()=>{
   const c=common(),src='//cdn.example.test/image.svg?sig=a%2Fb+1,{"webView":true}';
